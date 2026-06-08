@@ -523,6 +523,15 @@ class GoveePlugH5080(GoveePlugH508x):
             self._device = device
             # Last byte indicates state: 0x00 = off, 0x01 = on
             self._is_on = mfr_data[-1] == 0x01
+            # Payload is `ec 00 02 01 <state>`. Confirmed by FW2 RE: bytes[2:4] are hardcoded
+            # constants and the trailing byte is the true relay state (firmware reads the live
+            # relay state and rebroadcasts it on every on/off change; there is no steady-state
+            # heartbeat and no stale/default value is ever sent). So mfr_data[-1] is correct.
+            # See docs/superpowers/notes/2026-06-05-h5080-ble-protocol.md.
+            _LOGGER.debug(
+                "H5080 %s: advert %s -> is_on=%s (state byte 0x%02x)",
+                device.address, mfr_data.hex(), self._is_on, mfr_data[-1],
+            )
             if old_state != self._is_on:
                 _LOGGER.info(
                     "H5080 %s: State changed from advertisement - is_on=%s (was=%s, mfr_data=%s)",
