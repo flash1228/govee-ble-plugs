@@ -595,15 +595,15 @@ class GoveePlugH5080(GoveePlugH508x):
         return await self._query_status_internal(self.MSG_QUERY_STATUS)
 
     def _parse_status_response(self, data: bytearray) -> None:
-        """Parse status response from device."""
+        """Parse a 33 01 status reply: ``33 01 <state> 00.. <xor-cksum>`` (20 bytes).
+
+        The relay state is byte[2] (0x00 = off, nonzero = on). byte[-1] is the frame's
+        XOR checksum, NOT the state — reading it (as the old ``len>=20`` branch did)
+        reported the wrong on/off on every poll and, with polling enabled, overwrote the
+        correct advertisement-derived state each interval.
+        """
         if len(data) >= 3 and data[0] == 0x33 and data[1] == 0x01:
-            # Status is in the third byte or last byte
-            if len(data) >= 20:
-                # Check last byte for status (similar to advertisement parsing)
-                self._is_on = data[-1] == 0x01
-            elif len(data) >= 3:
-                # Try third byte
-                self._is_on = (data[2] & 0xFF) == 0xFF
+            self._is_on = data[2] != 0x00
 
 
 class GoveePlugH5083(GoveePlugH508x):
@@ -686,12 +686,9 @@ class GoveePlugH5083(GoveePlugH508x):
         return await self._query_status_internal(self.MSG_QUERY_STATUS)
 
     def _parse_status_response(self, data: bytearray) -> None:
-        """Parse status response from device."""
+        """Parse a 33 01 status reply: state at byte[2] (byte[-1] is the XOR checksum)."""
         if len(data) >= 3 and data[0] == 0x33 and data[1] == 0x01:
-            if len(data) >= 20:
-                self._is_on = data[-1] == 0x01
-            elif len(data) >= 3:
-                self._is_on = (data[2] & 0xFF) == 0xFF
+            self._is_on = data[2] != 0x00
 
 
 class GoveePlugH5082(GoveePlugH508x):
@@ -807,13 +804,15 @@ class GoveePlugH5082(GoveePlugH508x):
         return await self._query_status_internal(self.MSG_QUERY_STATUS)
 
     def _parse_status_response(self, data: bytearray) -> None:
-        """Parse status response from device."""
+        """Parse a 33 01 status reply: ``33 01 <bitfield> 00.. <xor-cksum>`` (20 bytes).
+
+        The per-port bitfield is byte[2] (bit1 = left, bit0 = right). byte[-1] is the
+        frame checksum, not the state.
+        """
         if len(data) >= 3 and data[0] == 0x33 and data[1] == 0x01:
-            # Status is in the last byte (similar to advertisement parsing)
-            if len(data) >= 20:
-                status_byte = data[-1]
-                self._is_on[0] = (status_byte & 0x2) == 0x2
-                self._is_on[1] = (status_byte & 0x1) == 0x1
+            status_byte = data[2]
+            self._is_on[0] = (status_byte & 0x2) == 0x2
+            self._is_on[1] = (status_byte & 0x1) == 0x1
 
 
 class GoveePlugH5086(GoveePlugH508x):
@@ -948,11 +947,13 @@ class GoveePlugH5086(GoveePlugH508x):
         )
 
     def _parse_status_response(self, data: bytearray) -> None:
-        """Parse status response from device."""
+        """Parse a 33 01 status reply: state at byte[2] (byte[-1] is the XOR checksum).
+
+        The H5086 poll path requests power frames, not this status frame, so on/off
+        normally comes from advertisements; corrected here for parity with the family.
+        """
         if len(data) >= 3 and data[0] == 0x33 and data[1] == 0x01:
-            # Status is in the last byte (similar to advertisement parsing)
-            if len(data) >= 20:
-                self._is_on = data[-1] == 0x01
+            self._is_on = data[2] != 0x00
 
 
 # class GoveePlugPairer:
