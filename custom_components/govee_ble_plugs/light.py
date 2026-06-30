@@ -330,6 +330,16 @@ class GoveePlugH6163(GoveePlugH6xxx):
         if await self._send_message(effects[effect]):
             self._effect = effect
 
+    async def async_set_segment_color(self, segments, rgb: tuple[int, int, int]) -> None:
+        """Set the colour of specific segments (the H6163 is a 15-segment 'DreamColor'
+        RGBIC strip). Uses the old-DreamColor 0x05 0x0B command."""
+        from .devices.codecs.dreamcolor import OldDreamColorCodec
+
+        r, g, b = rgb
+        if await self._send_message(OldDreamColorCodec.segment_color(r, g, b, segments)):
+            self._is_on = True
+            self._rgb = (r, g, b)
+
     async def async_query_status(self) -> bool:
         """Query current status. Returns True if state (brightness) was seeded."""
         client = None

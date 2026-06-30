@@ -23,7 +23,7 @@ The integration is **data-driven**: a declarative device registry maps every cat
 | **H5082** | Dual smart plug | on/off per outlet (2) |
 | **H5083** | Smart plug (single outlet) | on/off — *community-contributed* |
 | **H5086** | Smart plug w/ energy monitoring | on/off, plus voltage / current / power / energy / power-factor sensors |
-| **H6163** | RGB LED light | on/off, brightness, RGB color, color temperature, scene & music effects |
+| **H6163** | RGBIC LED light (15 segments) | on/off, brightness, RGB color, color temperature, scene & music effects, per-segment color (`light.set_segment_color`) |
 
 ### Protocol-derived (experimental)
 
