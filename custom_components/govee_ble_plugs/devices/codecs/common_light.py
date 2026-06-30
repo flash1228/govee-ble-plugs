@@ -100,10 +100,28 @@ class CommonLightCodec:
     def query_brightness() -> bytes:
         return single_frame(READ, 0x04)
 
+    @staticmethod
+    def query_color() -> bytes:
+        return single_frame(READ, 0x05, bytes([0x01]))
+
     # ---- parse ------------------------------------------------------------------------
     @staticmethod
     def parse_power_reply(frame: bytes) -> Optional[bool]:
         """A ``33/AA 01 <state> ..`` reply -> on/off. byte[2] is the relay/light state."""
         if len(frame) >= 3 and frame[1] == 0x01:
             return frame[2] == 0x01
+        return None
+
+    @staticmethod
+    def parse_brightness_reply(frame: bytes) -> Optional[int]:
+        """An ``AA 04 <brightness> ..`` reply -> brightness (0-255)."""
+        if len(frame) >= 3 and frame[1] == 0x04:
+            return frame[2]
+        return None
+
+    @staticmethod
+    def parse_color_reply(frame: bytes) -> Optional[tuple[int, int, int]]:
+        """An ``AA 05 <xx> <R> <G> <B> ..`` reply -> (r, g, b)."""
+        if len(frame) >= 6 and frame[1] == 0x05:
+            return (frame[3], frame[4], frame[5])
         return None

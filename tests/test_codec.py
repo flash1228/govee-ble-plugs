@@ -81,3 +81,16 @@ def test_parse_power_reply():
     assert CommonLightCodec.parse_power_reply(on) is True
     assert CommonLightCodec.parse_power_reply(off) is False
     assert CommonLightCodec.parse_power_reply(bytes([0x33, 0x99])) is None
+
+
+def test_status_queries_and_replies():
+    # query frames
+    assert _hex(CommonLightCodec.query_power()) == "aa010000000000000000000000000000000000ab"
+    assert _hex(CommonLightCodec.query_brightness()) == "aa040000000000000000000000000000000000ae"
+    assert _hex(CommonLightCodec.query_color()) == "aa050100000000000000000000000000000000ae"
+    # reply parsers
+    assert CommonLightCodec.parse_brightness_reply(base.single_frame(0xAA, 0x04, bytes([200]))) == 200
+    assert CommonLightCodec.parse_color_reply(base.single_frame(0xAA, 0x05, bytes([0x01, 10, 20, 30]))) == (10, 20, 30)
+    # cross-type frames don't mis-parse
+    assert CommonLightCodec.parse_brightness_reply(base.single_frame(0xAA, 0x05, bytes([0x01, 1, 2, 3]))) is None
+    assert CommonLightCodec.parse_color_reply(base.single_frame(0xAA, 0x04, bytes([200]))) is None

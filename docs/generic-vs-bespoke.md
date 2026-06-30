@@ -27,18 +27,17 @@ only device class with both kinds is **lights** (`GenericLightApi` vs. `GoveePlu
 
 | # | Aspect | Bespoke H6163 | Generic light | Impact |
 |---|--------|---------------|---------------|--------|
-| 1 | **Startup state seeding** | `async_query_status()` connects, subscribes to notify, and reads real on/off + brightness + colour (`33 00`/`aa 04`/`aa 05`), seeding actual state after a restart | `async_query_status()` returns `False` — **optimistic only**; state is unknown until the first command | **Main functional gap.** After an HA restart a generic light shows no real on/off/brightness/colour until you control it; H6163 recovers it (link permitting). The light is still *available* in both cases. |
+| 1 | **Startup state seeding** | `async_query_status()` connects, subscribes to notify, and reads real on/off + brightness + colour (`aa 04`/`aa 05 01`/`aa 01`), seeding actual state after a restart | **Now equivalent** — `GenericLightApi.async_query_status()` does the same connect → notify → query sequence, codec-driven | Closed (was the main gap). Both recover state after a restart, link permitting. A device that doesn't answer the query just stays optimistic. |
 | 2 | **Hidden effects** | `async_set_effect` also accepts `"Music - Rolling (Red)"` / `"(Blue)"` (settable via service call though not in the UI list) | Those two frames are not in `COMMON_EFFECTS`, so they're ignored | A `light.turn_on` service call with those exact effect names is a no-op on generic lights. The UI effect list (13) is identical. |
 | 3 | **Pairing / config flow** | `requires_pairing=True` → config flow shows the vestigial "press button" link step (a no-op pairer that returns a dummy token) | `requires_pairing=False` → entry is created directly, no link step | Cleaner setup for generic lights. H6163 kept as-is to preserve behavior. |
 | 4 | **Capabilities** | Fixed: RGB+COLOR_TEMP, 2000–9000 K, 13 effects (class attributes) | Derived from `LightCaps` per definition; today all generic lights use the same defaults, so the resulting HA attributes match H6163 (minus #2). A future per-model cap (e.g. white-only, or RGBIC segments) would diverge here. | None today; the mechanism exists for per-model variation. |
 | 5 | **Logging / MODEL** | Logs as `H6163`; `MODEL` is the class constant | Logs via package logger; `MODEL` is the actual discovered SKU | Cosmetic. |
 
 ### Why H6163 stays bespoke
-Its byte layouts are the proven reference the generic codec was validated against, and it has a
-real status-read path (#1) the generic engine doesn't replicate. Keeping it bespoke is
-behavior-preserving; it could be re-expressed through `GenericLightApi` later, at which point it
-would inherit differences #1–#3 (notably losing real status seeding) — which is exactly why it
-wasn't.
+Its byte layouts are the proven reference the generic codec was validated against. Keeping it
+bespoke is behavior-preserving — but now that the generic engine also seeds state (#1), the two
+are functionally close enough that the generic-driver toggle is a faithful test of the generic
+path (only differences #2–#3 remain, both minor).
 
 ## Sensors, RGBIC & appliances (generic-only — no bespoke counterpart)
 - **Sensors** (`GenericSensorApi`): the only prior sensors were the H5086's power-monitoring

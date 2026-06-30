@@ -9,16 +9,21 @@ Imported lazily (by a definition's factory), so importing ``..light`` here is cy
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import typing as T
 
+from bleak import BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
+from bleak_retry_connector import establish_connection
 from homeassistant.util.color import color_temperature_to_rgb
 
 from ..light import GoveePlugH6xxx
 from .capabilities import LightCaps
 from .codecs.common_light import CommonLightCodec
+
+_STATUS_QUERY_TIMEOUT = 5.0
 
 _LOGGER = logging.getLogger(__package__)
 
@@ -137,10 +142,69 @@ class GenericLightApi(GoveePlugH6xxx):
             self._effect = effect
 
     async def async_query_status(self) -> bool:
-        # Best-effort: common-set lights don't reliably answer a status read over this
-        # write-only transport, so state stays optimistic. The entity is available on
-        # discovery regardless (see GoveePlugLight.available).
-        return False
+        """Seed real state by connecting, subscribing to notifications, and querying
+        brightness (``aa 04``), colour (``aa 05 01``) and on/off (``aa 01``) — the same
+        sequence the bespoke H6163 uses. Returns True if any state was read. Best-effort:
+        a device that doesn't answer leaves state optimistic (the entity stays available).
+        """
+        client = None
+        name = f"{self._device.name} ({self._device.address})"
+        got_state = False
+        try:
+            async with self._connection_lock:
+                try:
+                    client = await establish_connection(
+                        BleakClient, self._device, name,
+                        max_attempts=1, connection_timeout=_STATUS_QUERY_TIMEOUT,
+                    )
+                except Exception as e:
+                    _LOGGER.debug("status connect failed for %s: %s", name, e)
+                    return False
+
+            ready = asyncio.Event()
+
+            def _on_notify(_char, data) -> None:
+                frame = bytes(data)
+                bri = self._codec.parse_brightness_reply(frame)
+                if bri is not None:
+                    self._brightness = bri
+                    if bri > 0:
+                        self._last_brightness = bri
+                    ready.set()
+                    return
+                rgb = self._codec.parse_color_reply(frame)
+                if rgb is not None:
+                    self._rgb = rgb
+                    ready.set()
+                    return
+                onoff = self._codec.parse_power_reply(frame)
+                if onoff is not None:
+                    self._is_on = onoff
+                    ready.set()
+
+            await client.start_notify(self._RECV_CHARACTERISTIC_UUID, _on_notify)
+
+            for query in (self._codec.query_brightness(), self._codec.query_color(),
+                          self._codec.query_power()):
+                ready.clear()
+                try:
+                    await client.write_gatt_char(self._SEND_CHARACTERISTIC_UUID, query, response=False)
+                    await asyncio.wait_for(ready.wait(), timeout=_STATUS_QUERY_TIMEOUT)
+                    got_state = True
+                except (asyncio.TimeoutError, Exception) as e:
+                    _LOGGER.debug("status query no reply for %s: %s", name, e)
+            return got_state
+        except Exception as e:
+            _LOGGER.debug("status query error for %s: %s", name, e)
+            return got_state
+        finally:
+            if client is not None:
+                try:
+                    if client.is_connected:
+                        await client.disconnect()
+                    await asyncio.sleep(0.1)
+                except Exception:
+                    pass
 
     # ---- RGBIC per-segment (only when the codec supports it) --------------------------
     def supports_segments(self) -> bool:
