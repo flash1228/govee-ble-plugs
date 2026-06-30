@@ -142,6 +142,16 @@ def test_non_rgbic_has_no_segments():
     assert api.supports_segments() is False
 
 
+def test_h6163_generic_driver_uses_dreamcolor_segment_codec():
+    # With the "use generic driver" toggle on, the H6163 must still support its 15 segments
+    # via the old-DreamColor 0x0B command (not the bare CommonLightCodec).
+    devices = importlib.import_module(f"{PKG}.devices")
+    api = devices.get_api_by_model("H6163", _FakeDevice(), "", prefer_generic=True)
+    assert type(api).__name__ == "GenericLightApi"
+    assert api._codec.__name__ == "OldDreamColorCodec"
+    assert api.supports_segments() is True
+
+
 def test_prefer_generic_routes_bespoke_light_to_generic():
     devices = importlib.import_module(f"{PKG}.devices")
     gen = devices.get_api_by_model("H6163", _FakeDevice(), "", prefer_generic=True)

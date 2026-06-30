@@ -34,6 +34,9 @@ class DeviceDefinition:
     default_polling: bool = False
     experimental: bool = True
     display_model: Optional[str] = None
+    # Codec to use when a bespoke light is forced onto the generic driver (prefer_generic),
+    # so it keeps the right colour/segment commands. None -> CommonLightCodec.
+    light_codec: Optional[Any] = None
 
     def matches_model(self, model: str) -> bool:
         return model.upper() in {m.upper() for m in self.models}
@@ -130,6 +133,8 @@ def get_api_by_model(
     # Test/validation path: force a light with a bespoke driver onto the generic driver.
     if prefer_generic and defn.category == "light":
         from .generic_light import GenericLightApi
+        if defn.light_codec is not None:
+            return GenericLightApi(device, token, defn, model, codec=defn.light_codec)
         return GenericLightApi(device, token, defn, model)
     return defn.api_factory(device, token, defn, model)
 

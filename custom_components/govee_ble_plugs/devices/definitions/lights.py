@@ -11,6 +11,7 @@ time.
 from __future__ import annotations
 
 from ..capabilities import LightCaps
+from ..codecs.dreamcolor import OldDreamColorCodec
 from ..registry import DeviceDefinition, find_definition_by_model, register
 from ._light_skus import LIGHT_SKUS, RGBIC_SKUS
 
@@ -42,12 +43,14 @@ register(DeviceDefinition(
     models=("H6163",),
     name_prefixes=("ihoment_H6163_",),
     category="light",
-    caps=LightCaps(brightness=True, rgb=True, color_temp_k=(2000, 9000), effects=_H6163_EFFECTS),
+    caps=LightCaps(brightness=True, rgb=True, color_temp_k=(2000, 9000), segments=15, effects=_H6163_EFFECTS),
     api_factory=_h6163_api,
     pair_factory=_h6163_pair,
     requires_pairing=True,   # unchanged: keeps the existing (no-op) link step
     default_polling=False,
     experimental=False,
+    # When forced onto the generic driver, use the old-DreamColor codec (15-seg, 0x0B).
+    light_codec=OldDreamColorCodec,
 ))
 
 
