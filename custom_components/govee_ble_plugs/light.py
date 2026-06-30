@@ -60,6 +60,13 @@ def _sign_payload(data):
     return checksum & 0xFF
 
 
+# Shared voluptuous schemas for the per-segment colour services.
+_SEGMENTS_SCHEMA = vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=0))])
+_RGB_SCHEMA = vol.All(
+    cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=0, max=255))], vol.Length(min=3, max=3)
+)
+
+
 # H6163 Light Device API
 class GoveePlugH6xxx:
     def __init__(
@@ -456,20 +463,26 @@ async def async_setup_entry(
         # Pass None, None for port and port_name since lights aren't port-based
         async_add_entities([GoveePlugLight(coordinator, entry, None, None)])
 
-    # RGBIC per-segment colour service (no-op on lights whose codec lacks segments).
+    # RGBIC per-segment colour services (no-op on lights whose codec lacks segments).
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
         "set_segment_color",
+        {vol.Required("segments"): _SEGMENTS_SCHEMA, vol.Required("rgb_color"): _RGB_SCHEMA},
+        "async_set_segment_color",
+    )
+    platform.async_register_entity_service(
+        "set_segment_colors",
         {
-            vol.Required("segments"): vol.All(
-                cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=0))]
-            ),
-            vol.Required("rgb_color"): vol.All(
-                cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=0, max=255))],
-                vol.Length(min=3, max=3),
+            vol.Required("groups"): vol.All(
+                cv.ensure_list,
+                [vol.Schema({
+                    vol.Required("rgb_color"): _RGB_SCHEMA,
+                    vol.Required("segments"): _SEGMENTS_SCHEMA,
+                })],
+                vol.Length(min=1),
             ),
         },
-        "async_set_segment_color",
+        "async_set_segment_colors",
     )
 
 
@@ -660,6 +673,29 @@ class GoveePlugLight(GoveePlugEntity, LightEntity):
             getattr(api, "MODEL", "?"), segments, rgb_color,
         )
         await api.async_set_segment_color(segments, tuple(rgb_color))
+        api._is_on = True
+        self.async_write_ha_state()
+
+    async def async_set_segment_colors(self, groups) -> None:
+        """Set several segment groups to different colours in one call.
+
+        The protocol paints one colour per frame (segments are grouped by colour), and frames
+        are additive, so this emits one frame per group over the shared connection.
+        """
+        api = self.coordinator.api
+        if api is None or not hasattr(api, "async_set_segment_color"):
+            _LOGGER.warning(
+                "set_segment_colors: model %s has no per-segment support "
+                "(is the integration updated and restarted?)",
+                getattr(api, "MODEL", "?") if api else None,
+            )
+            return
+        for group in groups:
+            _LOGGER.debug(
+                "set_segment_colors: model=%s group segments=%s rgb=%s",
+                getattr(api, "MODEL", "?"), group["segments"], group["rgb_color"],
+            )
+            await api.async_set_segment_color(group["segments"], tuple(group["rgb_color"]))
         api._is_on = True
         self.async_write_ha_state()
 

@@ -22,3 +22,27 @@ set_segment_color:
       example: "[255, 0, 0]"
       selector:
         color_rgb:
+
+set_segment_colors:
+  name: Set multiple segment colors
+  description: >-
+    Paint several groups of segments different colors on an RGBIC Govee light in one call
+    (one frame per group). Only effective on addressable (RGBIC) lights.
+  target:
+    entity:
+      integration: govee_ble_plugs
+      domain: light
+  fields:
+    groups:
+      name: Groups
+      description: >-
+        A list of {rgb_color, segments} groups. Each group's segments are painted that color;
+        segments not listed in any group keep their current color.
+      required: true
+      example: |
+        - rgb_color: [255, 0, 0]
+          segments: [0, 1, 2]
+        - rgb_color: [0, 0, 255]
+          segments: [8, 9, 10]
+      selector:
+        object:

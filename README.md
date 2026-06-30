@@ -40,7 +40,7 @@ Discovery matches any Govee BLE advertisement name (`GVH*`, `ihoment_*`, `Govee_
 - **Local BLE control** — talks to devices directly over Bluetooth; works with an adapter on the Home Assistant host or via ESPHome / Shelly BLE proxies.
 - **Data-driven device registry** — adding a device is a declarative entry (`custom_components/govee_ble_plugs/devices/`), with a per-SKU override hook for quirks; most lights share one common codec.
 - **Switch entities** for plugs (incl. per-outlet control for the dual H5082) and for appliances (on/off).
-- **Light entities** — brightness, RGB, color temperature, and built-in effects; **RGBIC** strips expose the `govee_ble_plugs.set_segment_color` service (`{segments: [0,1,2], rgb_color: [255,0,0]}`) for per-segment color.
+- **Light entities** — brightness, RGB, color temperature, and built-in effects; **RGBIC** strips expose per-segment color via two services: `govee_ble_plugs.set_segment_color` (`{segments: [0,1,2], rgb_color: [255,0,0]}`) for one color, and `govee_ble_plugs.set_segment_colors` (`{groups: [{rgb_color, segments}, …]}`) to paint several colors at once.
 - **Sensor entities** — temperature / humidity / battery for thermo-hygrometers.
 - **Energy monitoring** for the H5086: voltage, current, power, accumulated energy, and power-factor sensors, polled over BLE.
 - **State tracking** from passive BLE advertisements, plus active status polling with exponential backoff.
