@@ -213,9 +213,17 @@ class GenericLightApi(GoveePlugH6xxx):
     async def async_set_segment_color(self, segments, rgb: tuple[int, int, int]) -> None:
         """Set the colour of specific RGBIC segments. No-op on non-RGBIC codecs."""
         if not hasattr(self._codec, "segment_color"):
+            _LOGGER.warning(
+                "set_segment_color: %s (%s) is not an RGBIC light",
+                self.MODEL, type(self._codec).__name__,
+            )
             return
         r, g, b = rgb
-        if await self._send_message(self._codec.segment_color(r, g, b, segments)):
+        frame = self._codec.segment_color(r, g, b, segments)
+        _LOGGER.debug("%s segment_color segments=%s rgb=%s -> %s", self.MODEL, segments, rgb, frame.hex())
+        ok = await self._send_message(frame)
+        _LOGGER.debug("%s segment_color write ok=%s", self.MODEL, ok)
+        if ok:
             self._rgb = rgb
             self._color_mode = "rgb"
             self._color_temp_kelvin = None

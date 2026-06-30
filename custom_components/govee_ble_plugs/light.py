@@ -336,7 +336,11 @@ class GoveePlugH6163(GoveePlugH6xxx):
         from .devices.codecs.dreamcolor import OldDreamColorCodec
 
         r, g, b = rgb
-        if await self._send_message(OldDreamColorCodec.segment_color(r, g, b, segments)):
+        frame = OldDreamColorCodec.segment_color(r, g, b, segments)
+        _LOGGER.debug("H6163 segment_color segments=%s rgb=%s -> %s", segments, rgb, frame.hex())
+        ok = await self._send_message(frame)
+        _LOGGER.debug("H6163 segment_color write ok=%s", ok)
+        if ok:
             self._is_on = True
             self._rgb = (r, g, b)
 
@@ -641,8 +645,20 @@ class GoveePlugLight(GoveePlugEntity, LightEntity):
     async def async_set_segment_color(self, segments, rgb_color) -> None:
         """RGBIC per-segment colour (custom service). No-op if unsupported."""
         api = self.coordinator.api
-        if api is None or not hasattr(api, "async_set_segment_color"):
+        if api is None:
+            _LOGGER.warning("set_segment_color: device not discovered yet, ignoring")
             return
+        if not hasattr(api, "async_set_segment_color"):
+            _LOGGER.warning(
+                "set_segment_color: model %s has no per-segment support "
+                "(is the integration updated and restarted?)",
+                getattr(api, "MODEL", "?"),
+            )
+            return
+        _LOGGER.debug(
+            "set_segment_color: model=%s segments=%s rgb=%s",
+            getattr(api, "MODEL", "?"), segments, rgb_color,
+        )
         await api.async_set_segment_color(segments, tuple(rgb_color))
         api._is_on = True
         self.async_write_ha_state()

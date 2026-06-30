@@ -23,7 +23,7 @@ The integration is **data-driven**: a declarative device registry maps every cat
 | **H5082** | Dual smart plug | on/off per outlet (2) |
 | **H5083** | Smart plug (single outlet) | on/off — *community-contributed* |
 | **H5086** | Smart plug w/ energy monitoring | on/off, plus voltage / current / power / energy / power-factor sensors |
-| **H6163** | RGBIC LED light (15 segments) | on/off, brightness, RGB color, color temperature, scene & music effects, per-segment color (`light.set_segment_color`) |
+| **H6163** | RGBIC LED light (15 segments) | on/off, brightness, RGB color, color temperature, scene & music effects, per-segment color (`govee_ble_plugs.set_segment_color`) |
 
 ### Protocol-derived (experimental)
 
@@ -40,7 +40,7 @@ Discovery matches any Govee BLE advertisement name (`GVH*`, `ihoment_*`, `Govee_
 - **Local BLE control** — talks to devices directly over Bluetooth; works with an adapter on the Home Assistant host or via ESPHome / Shelly BLE proxies.
 - **Data-driven device registry** — adding a device is a declarative entry (`custom_components/govee_ble_plugs/devices/`), with a per-SKU override hook for quirks; most lights share one common codec.
 - **Switch entities** for plugs (incl. per-outlet control for the dual H5082) and for appliances (on/off).
-- **Light entities** — brightness, RGB, color temperature, and built-in effects; **RGBIC** strips expose the `light.set_segment_color` service (`{segments: [0,1,2], rgb_color: [255,0,0]}`) for per-segment color.
+- **Light entities** — brightness, RGB, color temperature, and built-in effects; **RGBIC** strips expose the `govee_ble_plugs.set_segment_color` service (`{segments: [0,1,2], rgb_color: [255,0,0]}`) for per-segment color.
 - **Sensor entities** — temperature / humidity / battery for thermo-hygrometers.
 - **Energy monitoring** for the H5086: voltage, current, power, accumulated energy, and power-factor sensors, polled over BLE.
 - **State tracking** from passive BLE advertisements, plus active status polling with exponential backoff.
@@ -77,7 +77,7 @@ This integration speaks both protocols and **auto-detects** which one a plug use
 Because the bulk of device support is protocol-derived rather than hardware-tested, two aids help you validate against gear you actually own:
 
 - **Generic-driver toggle (H6163).** The H6163's device options (**Configure**) include a **"Use generic driver (test)"** switch. Turn it on to route the light through the same data-driven driver the experimental lights use, so you can confirm the generic path works on real hardware in your environment. Default off uses the built-in, validated driver. See [`docs/generic-vs-bespoke.md`](docs/generic-vs-bespoke.md) for exactly how the two differ.
-- **`light.set_segment_color` service.** Exercise RGBIC per-segment color from Developer Tools → Services.
+- **`govee_ble_plugs.set_segment_color` service.** Exercise RGBIC per-segment color from Developer Tools → Services.
 
 If you confirm a model works (or fix one), please open an issue/PR so it can be promoted from experimental.
 

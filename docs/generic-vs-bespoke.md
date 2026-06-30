@@ -44,7 +44,7 @@ path (only differences #2–#3 remain, both minor).
   entities (part of that bespoke *plug*). Broadcast-only, parsing the packed-24 `0xEC88`
   temp/hum/battery advert; never connects.
 - **RGBIC** (`GenericLightApi` + `RgbicLightCodec`): per-segment colour via `0x05 15 01`; whole-
-  strip = all segments. Exposed in HA as a normal light plus the `light.set_segment_color`
+  strip = all segments. Exposed in HA as a normal light plus the `govee_ble_plugs.set_segment_color`
   service. No bespoke RGBIC ever existed.
 - **Appliances** (`GenericApplianceApi`): on/off only (opcode `0x01`), optimistic, available on
   discovery. Mode/gear/ice-size (`0x05`) and feature switches are not yet implemented.
