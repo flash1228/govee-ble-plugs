@@ -114,6 +114,34 @@ def test_light_caps_fills_effects_from_codec():
     assert "Music - Rolling (Red)" not in caps.effects
 
 
+def test_rgbic_segment_color():
+    GenericLightApi = generic_light.GenericLightApi
+    LightCaps = capabilities.LightCaps
+    rgbic = importlib.import_module(f"{PKG}.devices.codecs.rgbic")
+    api = GenericLightApi(
+        _FakeDevice(), None, _FakeDefn(LightCaps(segments=16)), "H619A",
+        codec=rgbic.RgbicLightCodec,
+    )
+    sent = []
+
+    async def fake_send(msg):
+        sent.append(msg)
+        return True
+
+    api._send_message = fake_send
+    assert api.supports_segments() is True
+    asyncio.run(api.async_set_segment_color([0, 1], (10, 20, 30)))
+    assert sent[-1] == rgbic.RgbicLightCodec.segment_color(10, 20, 30, [0, 1])
+    # whole-strip rgb goes through the RGBIC all-segments command
+    asyncio.run(api.async_set_light_rgb((1, 2, 3)))
+    assert sent[-1] == rgbic.RgbicLightCodec.rgb(1, 2, 3)
+
+
+def test_non_rgbic_has_no_segments():
+    api, _ = _make_api()  # CommonLightCodec, segments=0
+    assert api.supports_segments() is False
+
+
 def test_prefer_generic_routes_bespoke_light_to_generic():
     devices = importlib.import_module(f"{PKG}.devices")
     gen = devices.get_api_by_model("H6163", _FakeDevice(), "", prefer_generic=True)

@@ -57,11 +57,34 @@ def _generic_light_api(device, token, defn, model):
     return GenericLightApi(device, token, defn, model)
 
 
-# Don't double-register a SKU that already has a bespoke definition (e.g. H6163).
-_generic_models = tuple(s for s in LIGHT_SKUS if find_definition_by_model(s) is None)
+def _rgbic_light_api(device, token, defn, model):
+    from ..generic_light import GenericLightApi
+    from ..codecs.rgbic import RgbicLightCodec
+    return GenericLightApi(device, token, defn, model, codec=RgbicLightCodec)
 
+
+# RGBIC (addressable, catalogue ic>0): per-segment colour via the RGBIC-native command.
+_rgbic_models = tuple(
+    s for s in LIGHT_SKUS if s in RGBIC_SKUS and find_definition_by_model(s) is None
+)
 register(DeviceDefinition(
-    models=_generic_models,
+    models=_rgbic_models,
+    name_prefixes=(),
+    category="light",
+    caps=LightCaps(brightness=True, rgb=True, color_temp_k=(2000, 9000), segments=16),
+    api_factory=_rgbic_light_api,
+    pair_factory=None,
+    requires_pairing=False,
+    default_polling=False,
+    experimental=True,
+))
+
+# Plain (non-segmented) lights: whole-strip colour via the legacy common command.
+_plain_models = tuple(
+    s for s in LIGHT_SKUS if s not in RGBIC_SKUS and find_definition_by_model(s) is None
+)
+register(DeviceDefinition(
+    models=_plain_models,
     name_prefixes=(),  # discovered via broad manifest matchers + extract_sku
     category="light",
     caps=LightCaps(brightness=True, rgb=True, color_temp_k=(2000, 9000)),
@@ -70,8 +93,4 @@ register(DeviceDefinition(
     requires_pairing=False,
     default_polling=False,
     experimental=True,        # protocol-derived; not all hardware-verified
-    display_model=None,
 ))
-
-# RGBIC_SKUS is retained for a future per-segment codec; imported to keep it referenced.
-_ = RGBIC_SKUS

@@ -85,7 +85,8 @@ def all_name_prefixes() -> tuple[str, ...]:
 #   GVH5086 / GVHxxxx                                      -> strip "GV" -> "H5086"
 #   GV5080... (V3)                                         -> "H" + 4 digits after "GV"
 _UNDERSCORE_PREFIXES = ("ihoment_", "Govee_", "Minger_", "GBK_")
-_SKU_RE = re.compile(r"^[HhRr]\d{3,4}[A-Za-z0-9]*$")
+# Govee SKUs look like a single letter (H/B/R/…) + 3-4 digits, optionally with a suffix.
+_SKU_RE = re.compile(r"^[A-Za-z]\d{3,4}[A-Za-z0-9]*$")
 
 
 def extract_sku(local_name: Optional[str]) -> Optional[str]:
@@ -103,7 +104,7 @@ def extract_sku(local_name: Optional[str]) -> Optional[str]:
     if name.startswith("GV"):
         rest = name[2:]
         token = rest.split("_", 1)[0]
-        if token[:1] in ("H", "h", "R", "r") and _SKU_RE.match(token):
+        if token[:1].isalpha() and _SKU_RE.match(token):
             return token.upper()
         # GV<4 digits>...  ->  H<4 digits>
         digits = re.match(r"(\d{4})", token)

@@ -141,3 +141,17 @@ class GenericLightApi(GoveePlugH6xxx):
         # write-only transport, so state stays optimistic. The entity is available on
         # discovery regardless (see GoveePlugLight.available).
         return False
+
+    # ---- RGBIC per-segment (only when the codec supports it) --------------------------
+    def supports_segments(self) -> bool:
+        return self._caps.segments > 0 and hasattr(self._codec, "segment_color")
+
+    async def async_set_segment_color(self, segments, rgb: tuple[int, int, int]) -> None:
+        """Set the colour of specific RGBIC segments. No-op on non-RGBIC codecs."""
+        if not hasattr(self._codec, "segment_color"):
+            return
+        r, g, b = rgb
+        if await self._send_message(self._codec.segment_color(r, g, b, segments)):
+            self._rgb = rgb
+            self._color_mode = "rgb"
+            self._color_temp_kelvin = None

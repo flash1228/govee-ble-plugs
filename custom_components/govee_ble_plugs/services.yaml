@@ -1,0 +1,24 @@
+set_segment_color:
+  name: Set segment color
+  description: >-
+    Set the color of specific segments on an RGBIC Govee light. Only effective on
+    addressable (RGBIC) lights; ignored otherwise.
+  target:
+    entity:
+      integration: govee_ble_plugs
+      domain: light
+  fields:
+    segments:
+      name: Segments
+      description: Zero-based segment indices to color (0-15).
+      required: true
+      example: "[0, 1, 2]"
+      selector:
+        text:
+    rgb_color:
+      name: RGB color
+      description: Color as [R, G, B], each 0-255.
+      required: true
+      example: "[255, 0, 0]"
+      selector:
+        color_rgb:

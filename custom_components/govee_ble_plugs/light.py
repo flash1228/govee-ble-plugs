@@ -35,11 +35,13 @@ from homeassistant.components.light import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
 )
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.util.color import color_temperature_to_rgb
+import voluptuous as vol
 
 from .const import DOMAIN
 from .coordinator import GoveePlugDataUpdateCoordinator
@@ -425,16 +427,36 @@ async def async_setup_entry(
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator: GoveePlugDataUpdateCoordinator = entry_data["coordinator"]
 
-    # Only add light entity if the device supports it
+    add_entity = False
     if coordinator.api and coordinator.api.has_light():
+        add_entity = True
+    elif not coordinator.api:
+        # Device not discovered yet — add the entity (unavailable) if the configured model
+        # is a light, so it appears and starts working once the device shows up.
+        from .devices import find_definition_by_model
+
+        defn = find_definition_by_model(entry_data.get("model") or "")
+        if defn is not None and defn.category == "light":
+            add_entity = True
+    if add_entity:
         # Pass None, None for port and port_name since lights aren't port-based
         async_add_entities([GoveePlugLight(coordinator, entry, None, None)])
-    elif not coordinator.api:
-        # Device not found yet, but still add the light entity with unavailable status
-        # Check if the model supports lights based on the entry data
-        model = entry_data.get("model", "")
-        if model == "H6163":
-            async_add_entities([GoveePlugLight(coordinator, entry, None, None)])
+
+    # RGBIC per-segment colour service (no-op on lights whose codec lacks segments).
+    platform = entity_platform.async_get_current_platform()
+    platform.async_register_entity_service(
+        "set_segment_color",
+        {
+            vol.Required("segments"): vol.All(
+                cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=0))]
+            ),
+            vol.Required("rgb_color"): vol.All(
+                cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(min=0, max=255))],
+                vol.Length(min=3, max=3),
+            ),
+        },
+        "async_set_segment_color",
+    )
 
 
 class GoveePlugLight(GoveePlugEntity, LightEntity):
@@ -604,6 +626,15 @@ class GoveePlugLight(GoveePlugEntity, LightEntity):
         # Update on state immediately to reflect the turn-on action
         self.coordinator.api._is_on = True
 
+        self.async_write_ha_state()
+
+    async def async_set_segment_color(self, segments, rgb_color) -> None:
+        """RGBIC per-segment colour (custom service). No-op if unsupported."""
+        api = self.coordinator.api
+        if api is None or not hasattr(api, "async_set_segment_color"):
+            return
+        await api.async_set_segment_color(segments, tuple(rgb_color))
+        api._is_on = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:

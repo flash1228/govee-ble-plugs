@@ -39,6 +39,7 @@ def test_extract_sku_gv_schemes():
     assert registry.extract_sku("GVH5086") == "H5086"
     assert registry.extract_sku("GVH6159_AB12") == "H6159"
     assert registry.extract_sku("GV5080xyz") == "H5080"  # GV + 4 digits -> H####
+    assert registry.extract_sku("GVB7080") == "B7080"    # non-H letter prefix
 
 
 def test_extract_sku_none():
