@@ -24,7 +24,18 @@ async def async_setup_entry(
     if coordinator.api:
         port_names = coordinator.api.port_names()
     else:
-        port_names = [(None, None)]
+        # Device not discovered yet — only create switch(es) if the configured model is a
+        # switch-type device (plug/appliance), so lights/sensors don't get phantom switches.
+        from .devices import find_definition_by_model
+        from .devices.capabilities import SwitchCaps
+
+        defn = find_definition_by_model(entry_data.get("model") or "")
+        if defn is None or defn.category not in ("plug", "appliance"):
+            port_names = []
+        elif isinstance(defn.caps, SwitchCaps) and defn.caps.ports:
+            port_names = list(defn.caps.ports)
+        else:
+            port_names = [(None, None)]
 
     for port, port_name in port_names:
         entities.append(GoveePlugSwitch(coordinator, entry, port, port_name))
@@ -57,3 +68,15 @@ class GoveePlugSwitch(GoveePlugEntity, SwitchEntity):
         if not self.coordinator.api:
             return None
         return self.coordinator.api.is_on(self._port)
+
+    @property
+    def available(self) -> bool:
+        """Available once discovered. Plugs gate on parsed state; optimistic devices
+        (appliances, whose state isn't reliably carried by broadcasts) are available as
+        soon as the API exists."""
+        api = self.coordinator.api
+        if api is None:
+            return False
+        if getattr(api, "optimistic_switch", False):
+            return True
+        return api.is_on(self._port) is not None
