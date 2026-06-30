@@ -27,22 +27,13 @@ The integration is **data-driven**: a declarative device registry maps every cat
 
 ### Protocol-derived (experimental)
 
-Everything below is supported from a model of the BLE protocol **reverse-engineered from the Govee app**, but is **not yet validated on physical hardware**. These devices are flagged *experimental* — they should work, but may need per-model fixes. (See [Testing experimental devices](#testing-experimental-devices).)
+Everything below is supported from a model of the Govee BLE protocol, but is **not yet validated on physical hardware**. These devices are flagged *experimental* — they should work, but may need per-model fixes. (See [Testing experimental devices](#testing-experimental-devices).)
 
 - **Lights (~450 SKUs)** — on/off, brightness, RGB color, color temperature, and a shared catalogue of built-in scene/music effects. **RGBIC** strips (addressable) additionally get whole-strip color via the native command plus per-segment color through a custom service.
 - **Thermo-hygrometers (~20 SKUs)** — temperature, humidity, and battery, parsed passively from BLE advertisements (no connection needed).
 - **Kitchen & air appliances (~75 SKUs)** — on/off for humidifiers, ice makers, kettles, heaters, purifiers, and fans. (Mode/gear/ice-size are not yet implemented.)
 
 Discovery matches any Govee BLE advertisement name (`GVH*`, `ihoment_*`, `Govee_*`, `GBK_*`, `Minger_*`); the registry then resolves the SKU. Supported models offer to configure; unrecognised ones are politely declined.
-
-## How the protocols were derived
-
-The non-verified device support comes from decompiling and reverse-engineering the **Govee Home Android app (v7.5.20)**. The extracted, citable protocol references live in [`re_apk/`](re_apk/):
-
-- [`re_apk/GOVEE_BLE_PROTOCOL.md`](re_apk/GOVEE_BLE_PROTOCOL.md) — core transport, framing, encryption, broadcast parsing, and the plug command set.
-- [`re_apk/GOVEE_BLE_DEVICES.md`](re_apk/GOVEE_BLE_DEVICES.md) — the full SKU → family matrix and per-family command/mode byte layouts.
-
-The integration's protocol codecs and device definitions are built directly from these.
 
 ## Features
 
@@ -93,7 +84,7 @@ If you confirm a model works (or fix one), please open an issue/PR so it can be 
 ## Troubleshooting
 
 - **Range / connectivity** — make sure the device is within Bluetooth range of the host or a BLE proxy.
-- **An experimental device doesn't respond** — its protocol is derived from the app, not hardware-verified; on/off uses the documented opcode but some models differ. Enable debug logging (below) to see the exact bytes sent, and file an issue with the model and the `re_apk/` reference.
+- **An experimental device doesn't respond** — its protocol is not hardware-verified, and some models use different opcodes. Enable debug logging (below) to see the exact bytes sent, and file an issue with the model.
 - **`authentication timeout` / switch won't actuate on an H5080** — the plug is likely on the newer encrypted firmware and needs to be **re-paired**: remove the device and add it again, short-pressing the button when prompted (see Pairing above). This refreshes the stored token to the one the updated firmware expects.
 - **Logs** — check **Settings → System → Logs** for messages from `govee_ble_plugs`. Enabling debug logging for the integration surfaces the raw advertisement and command bytes, which is the fastest way to diagnose state or protocol issues.
 
@@ -111,7 +102,7 @@ This project builds on the work of others:
 - **H5086 advertisement state-byte fix & command cooldown:** adapted from [cmorgannorris/govee-ble-plugs](https://github.com/cmorgannorris/govee-ble-plugs).
 - **H5086 power/energy monitoring:** ported from [nsheaps/govee-ble-plugs](https://github.com/nsheaps/govee-ble-plugs).
 - **H6163 color-temperature protocol:** referenced from [wez/govee-py](https://github.com/wez/govee-py) and [chvolkmann/govee_btled](https://github.com/chvolkmann/govee_btled).
-- **Protocol reverse-engineering:** [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering) — a great starting point for adding new devices. The broad device support here is derived from the Govee Home app (see [`re_apk/`](re_apk/)).
+- **Protocol reverse-engineering:** [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering) — a great starting point for adding new devices.
 - **Inspiration & structure:** [Beshelmek/govee_ble_lights](https://github.com/Beshelmek/govee_ble_lights) and Home Assistant's [keymitt_ble integration](https://github.com/home-assistant/core/tree/dev/homeassistant/components/keymitt_ble).
 
 Available under the Apache 2.0 license.

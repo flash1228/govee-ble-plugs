@@ -1,4 +1,4 @@
-"""Core Govee BLE frame primitives (GOVEE_BLE_PROTOCOL.md §3).
+"""Core Govee BLE frame primitives.
 
 Single command frame, always 20 bytes:
     byte[0]  = command type   0x33 write / 0xAA read

@@ -1,9 +1,9 @@
 """Generic appliance API — on/off control for Govee BLE kitchen/air appliances.
 
 Humidifiers, ice makers, kettles, heaters, purifiers, fans, etc. (the ``base_h71xx`` family)
-share the main-switch opcode ``0x01`` (``33 01 <on>``; GOVEE_BLE_DEVICES.md fam-kitchen-air
-§3.1). This exposes that as a single power switch. Mode/gear/ice-size (opcode 0x05) and the
-various feature switches are per-SKU and left as future work.
+share the main-switch opcode ``0x01`` (``33 01 <on>``). This exposes that as a single power
+switch. Mode/gear/ice-size (opcode 0x05) and the various feature switches are per-SKU and
+left as future work.
 
 State is optimistic (these devices' broadcast layouts vary); the switch is available on
 discovery via ``optimistic_switch``. Experimental — BLE control is protocol-derived, not

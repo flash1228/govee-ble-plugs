@@ -1,4 +1,4 @@
-"""The common Govee light command set (GOVEE_BLE_PROTOCOL.md §6.1 / §6.5).
+"""The common Govee light command set.
 
 This is the legacy/common protocol shared by the large `pactType 11` "data-driven" band of
 Govee BLE lights and validated on real hardware by this integration's H6163 light (it also

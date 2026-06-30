@@ -1,4 +1,4 @@
-"""RGBIC (addressable per-segment) light codec (GOVEE_BLE_DEVICES.md fam-rgbic §3).
+"""RGBIC (addressable per-segment) light codec.
 
 Adds per-segment colour on top of the common set. The principal RGBIC colour command is
 ``33 05 15 01 R G B <2-byte segment mask>`` (builder ``h``); the mask is little-endian with

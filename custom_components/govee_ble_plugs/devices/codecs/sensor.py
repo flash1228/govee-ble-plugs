@@ -1,4 +1,4 @@
-"""Govee sensor broadcast parsing (GOVEE_BLE_DEVICES.md / re_apk sensors spec).
+"""Govee sensor broadcast parsing.
 
 The large Govee thermo-hygrometer family (H5072/H5075/H5101/H5102/H5074/… ) broadcasts a
 packed 24-bit temp+humidity value plus a battery byte inside the ``0xEC88`` manufacturer AD.

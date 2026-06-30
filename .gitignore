@@ -11,6 +11,7 @@ config
 out.txt
 # Reverse-engineering working artifacts (not for the public repo)
 re/
+re_apk/
 
 # Internal RE / planning working docs (not for the public repo)
 docs/superpowers/

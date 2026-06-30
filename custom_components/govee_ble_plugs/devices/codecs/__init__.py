@@ -1,6 +1,5 @@
-"""Protocol codecs: build/parse the Govee BLE byte frames documented in
-``re_apk/GOVEE_BLE_PROTOCOL.md``. Codecs are pure functions of bytes — no I/O — so they
-are unit-testable against the spec's byte vectors without hardware.
+"""Protocol codecs: build/parse the Govee BLE byte frames. Codecs are pure functions of
+bytes — no I/O — so they are unit-testable against known byte vectors without hardware.
 """
 from __future__ import annotations
 

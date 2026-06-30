@@ -1,5 +1,5 @@
-"""Generated from the app catalog — light SKUs (Kitchen/Air/Sensor/plug/appliance SKUs excluded).
-RGBIC_SKUS have per-segment colour (catalog ic>0). Regenerate if the catalog changes."""
+"""Light SKUs (Kitchen/Air/Sensor/plug/appliance SKUs excluded).
+RGBIC_SKUS have per-segment colour."""
 
 LIGHT_SKUS = (
     "B7080", "B7081", "B7082", "H1161", "H1162", "H1163", "H1167", "H1168",

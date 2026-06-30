@@ -64,7 +64,7 @@ the H6163). Expect identical control; the visible difference is #1 (no real stat
 a restart while it's on).
 
 ## Verification status (important)
-- The generic engines are **unit-tested and byte-validated** against the extracted spec and the
+- The generic engines are **unit-tested and byte-validated** against known byte vectors and the
   H6163 reference, but **not hardware-validated** — the only physically-owned devices (plugs,
   H6163) remain on their unchanged bespoke paths. Every generic light/sensor definition is flagged
   `experimental=True`. Real-hardware confirmation per family is the follow-up.

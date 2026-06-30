@@ -1,5 +1,5 @@
-"""Generated from the app catalog — Kitchen/Air + H71xx/H8xxx appliance SKUs,
-registered as on/off appliance switches (experimental; BLE power = opcode 0x01)."""
+"""Kitchen/Air + H71xx/H8xxx appliance SKUs, registered as on/off appliance switches
+(experimental; BLE power = opcode 0x01)."""
 
 APPLIANCE_SKUS = (
     "H5055", "H5182", "H5191", "H5192", "H5194", "H5198", "H5610", "H7100",

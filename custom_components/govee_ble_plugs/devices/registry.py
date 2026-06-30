@@ -79,7 +79,7 @@ def all_name_prefixes() -> tuple[str, ...]:
 
 # --- SKU extraction from an advertised local name --------------------------------------
 #
-# Govee/Ihoment advertise under several naming schemes (see GOVEE_BLE_PROTOCOL.md §5.2):
+# Govee/Ihoment advertise under several naming schemes:
 #   ihoment_H5080_AB12 / Govee_H6163_XXXX / Minger_HXXXX_  -> underscore-split[1]
 #   GBK_HXXXX_...                                          -> underscore-split[1]
 #   GVH5086 / GVHxxxx                                      -> strip "GV" -> "H5086"
