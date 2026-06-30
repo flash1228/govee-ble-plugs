@@ -64,7 +64,13 @@ the H6163). Expect identical control; the visible difference is #1 (no real stat
 a restart while it's on).
 
 ## Verification status (important)
-- The generic engines are **unit-tested and byte-validated** against known byte vectors and the
-  H6163 reference, but **not hardware-validated** — the only physically-owned devices (plugs,
-  H6163) remain on their unchanged bespoke paths. Every generic light/sensor definition is flagged
-  `experimental=True`. Real-hardware confirmation per family is the follow-up.
+- **Hardware-confirmed (2026-06-30):** the generic light path was driven against a real **H6163**
+  via the "Use generic driver" toggle and **controlled correctly** — validating `GenericLightApi`
+  + `CommonLightCodec` (on/off, brightness, RGB, colour-temp) end-to-end on physical hardware.
+  This is the common-set codec that the bulk of the experimental lights share, so it materially
+  de-risks them — but it is one device, not per-SKU proof.
+- Still unconfirmed on hardware: the **RGBIC** path (`RgbicLightCodec`, different colour command),
+  the **appliance** on/off opcode per family, and **sensor** broadcast offsets for models whose
+  layout differs. These stay `experimental=True` pending a device of each kind.
+- The generic engines are also **unit-tested and byte-validated** against known byte vectors and
+  the H6163 reference.
