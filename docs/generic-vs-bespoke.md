@@ -40,10 +40,18 @@ behavior-preserving; it could be re-expressed through `GenericLightApi` later, a
 would inherit differences #1–#3 (notably losing real status seeding) — which is exactly why it
 wasn't.
 
-## Sensors
-`GenericSensorApi` has **no bespoke counterpart** (the only prior sensors were the H5086's
-power-monitoring entities, which belong to that bespoke *plug*). So there's nothing to diff: it
-is broadcast-only, parsing the packed-24 `0xEC88` temp/hum/battery advert, and never connects.
+## Sensors, RGBIC & appliances (generic-only — no bespoke counterpart)
+- **Sensors** (`GenericSensorApi`): the only prior sensors were the H5086's power-monitoring
+  entities (part of that bespoke *plug*). Broadcast-only, parsing the packed-24 `0xEC88`
+  temp/hum/battery advert; never connects.
+- **RGBIC** (`GenericLightApi` + `RgbicLightCodec`): per-segment colour via `0x05 15 01`; whole-
+  strip = all segments. Exposed in HA as a normal light plus the `light.set_segment_color`
+  service. No bespoke RGBIC ever existed.
+- **Appliances** (`GenericApplianceApi`): on/off only (opcode `0x01`), optimistic, available on
+  discovery. Mode/gear/ice-size (`0x05`) and feature switches are not yet implemented.
+
+All three are new device classes, so there's nothing to diff against — they're entirely
+generic and flagged `experimental`.
 
 ## Testing the generic driver on your own hardware
 
