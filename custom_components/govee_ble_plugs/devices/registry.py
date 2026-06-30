@@ -120,10 +120,16 @@ def extract_sku(local_name: Optional[str]) -> Optional[str]:
 # --- Public dispatch (re-exported from devices/__init__.py) -----------------------------
 
 
-def get_api_by_model(model: str, device: "BLEDevice", token: Optional[str]) -> Any:
+def get_api_by_model(
+    model: str, device: "BLEDevice", token: Optional[str], prefer_generic: bool = False
+) -> Any:
     defn = find_definition_by_model(model)
     if defn is None:
         raise ConfigEntryError(f"Unsupported model {model}")
+    # Test/validation path: force a light with a bespoke driver onto the generic driver.
+    if prefer_generic and defn.category == "light":
+        from .generic_light import GenericLightApi
+        return GenericLightApi(device, token, defn, model)
     return defn.api_factory(device, token, defn, model)
 
 

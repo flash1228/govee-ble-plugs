@@ -110,3 +110,16 @@ def test_light_caps_fills_effects_from_codec():
     api, _ = _make_api()
     caps = api.light_caps()
     assert "Movie" in caps.effects and "Normal" in caps.effects
+    # Only codec-emittable effects are exposed (no "Rolling" no-ops).
+    assert "Music - Rolling (Red)" not in caps.effects
+
+
+def test_prefer_generic_routes_bespoke_light_to_generic():
+    devices = importlib.import_module(f"{PKG}.devices")
+    gen = devices.get_api_by_model("H6163", _FakeDevice(), "", prefer_generic=True)
+    assert type(gen).__name__ == "GenericLightApi"
+    besp = devices.get_api_by_model("H6163", _FakeDevice(), "", prefer_generic=False)
+    assert type(besp).__name__ == "GoveePlugH6163"
+    # Plugs ignore prefer_generic (category != light).
+    plug = devices.get_api_by_model("H5080", _FakeDevice(), "tok", prefer_generic=True)
+    assert type(plug).__name__ == "GoveePlugH5080"

@@ -15,9 +15,10 @@
             },
             "init": {
                 "data": {
-                    "enable_polling": "Enable status polling"
+                    "enable_polling": "Enable status polling",
+                    "generic_driver": "Use generic driver (test)"
                 },
-                "description": "Configure polling options. Status updates from BLE advertisements will always work regardless of this setting."
+                "description": "Configure polling options. Status updates from BLE advertisements will always work regardless of this setting. 'Use generic driver' routes this light through the data-driven driver instead of its built-in one — for testing; leave off for normal use."
             }
         },
         "error": {

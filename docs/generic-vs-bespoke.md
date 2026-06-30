@@ -45,6 +45,16 @@ wasn't.
 power-monitoring entities, which belong to that bespoke *plug*). So there's nothing to diff: it
 is broadcast-only, parsing the packed-24 `0xEC88` temp/hum/battery advert, and never connects.
 
+## Testing the generic driver on your own hardware
+
+The H6163 has a **"Use generic driver (test)"** toggle in its device options
+(Settings → Devices → the H6163 → Configure). With it on, the entry is reloaded through
+`GenericLightApi` instead of the bespoke class, so you can A/B the generic path on a light you
+actually own — in your real environment (ESPHome-proxy reachable), not a standalone script.
+Default off = bespoke. The toggle only appears for lights that have a bespoke driver (today,
+the H6163). Expect identical control; the visible difference is #1 (no real state seeding after
+a restart while it's on).
+
 ## Verification status (important)
 - The generic engines are **unit-tested and byte-validated** against the extracted spec and the
   H6163 reference, but **not hardware-validated** — the only physically-owned devices (plugs,

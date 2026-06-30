@@ -14,7 +14,7 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFl
 from homeassistant.const import CONF_ACCESS_TOKEN, CONF_ADDRESS, CONF_MODEL
 from homeassistant.core import callback
 
-from .const import DOMAIN, CONF_ENABLE_POLLING
+from .const import DOMAIN, CONF_ENABLE_POLLING, CONF_GENERIC_DRIVER, DEFAULT_GENERIC_DRIVER
 from .plugs import (
     GoveeAdvertisementData,
     GoveePairApi,
@@ -209,15 +209,18 @@ class GoveeBlePlugsOptionsFlowHandler(OptionsFlowWithReload):
         if user_input is not None:
             return self.async_create_entry(data=user_input)
 
-        options_schema = vol.Schema(
-            {
-                vol.Required(CONF_ENABLE_POLLING): bool,
-            }
-        )
+        schema: dict = {vol.Required(CONF_ENABLE_POLLING): bool}
+        # Offer the generic-driver test toggle only for lights that have a bespoke driver
+        # (currently the H6163) — flipping it routes the device through GenericLightApi.
+        model = self.config_entry.data.get(CONF_MODEL)
+        defn = find_definition_by_model(model) if model else None
+        # Bespoke lights (currently only the H6163) can be A/B-tested on the generic driver.
+        if defn is not None and defn.category == "light" and not defn.experimental:
+            schema[vol.Optional(CONF_GENERIC_DRIVER, default=DEFAULT_GENERIC_DRIVER)] = bool
 
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(
-                options_schema, self.config_entry.options
+                vol.Schema(schema), self.config_entry.options
             ),
         )

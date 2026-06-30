@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
-from .const import DOMAIN, CONF_ENABLE_POLLING
+from .const import DOMAIN, CONF_ENABLE_POLLING, CONF_GENERIC_DRIVER, DEFAULT_GENERIC_DRIVER
 from .coordinator import GoveePlugDataUpdateCoordinator
 
 from .plugs import GoveePlugApi
@@ -83,16 +83,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "ble_device": ble_device,
     }
 
+    prefer_generic: bool = entry.options.get(CONF_GENERIC_DRIVER, DEFAULT_GENERIC_DRIVER)
+    enable_polling: bool = entry.options.get(CONF_ENABLE_POLLING, default_enable_polling(model))
+
     if ble_device:
-        api: GoveePlugApi = get_api_by_model(model, ble_device, token)
+        api: GoveePlugApi = get_api_by_model(model, ble_device, token, prefer_generic)
         coordinator = GoveePlugDataUpdateCoordinator(
-            hass, api=api, ble_device=ble_device, address=bdaddr, enable_polling=entry.options.get(CONF_ENABLE_POLLING, default_enable_polling(model))
+            hass, api=api, ble_device=ble_device, address=bdaddr,
+            enable_polling=enable_polling, prefer_generic=prefer_generic,
         )
         hass.data[DOMAIN][entry.entry_id]["coordinator"] = coordinator
     else:
         # Create coordinator without initial device - will be set when device is discovered
         coordinator = GoveePlugDataUpdateCoordinator(
-            hass, api=None, ble_device=None, address=bdaddr, model=model, token=token, enable_polling=entry.options.get(CONF_ENABLE_POLLING, default_enable_polling(model))
+            hass, api=None, ble_device=None, address=bdaddr, model=model, token=token,
+            enable_polling=enable_polling, prefer_generic=prefer_generic,
         )
         hass.data[DOMAIN][entry.entry_id]["coordinator"] = coordinator
 

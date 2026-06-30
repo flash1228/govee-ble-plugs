@@ -55,15 +55,17 @@ class GenericLightApi(GoveePlugH6xxx):
 
     # ---- capability advertisement (read by the light entity) --------------------------
     def light_caps(self) -> LightCaps:
-        """Effective caps: fall back to the codec's built-in effect catalogue."""
-        if self._caps.effects:
-            return self._caps
+        """Effective caps. Effects are restricted to those the codec can actually emit, so
+        the HA effect list never advertises a no-op (relevant when a bespoke definition's
+        caps list more effects than the common codec supports — e.g. H6163 via generic)."""
+        names = self._caps.effects or self._codec.effect_names()
+        effects = tuple(n for n in names if self._codec.effect(n) is not None)
         return LightCaps(
             brightness=self._caps.brightness,
             rgb=self._caps.rgb,
             color_temp_k=self._caps.color_temp_k,
             segments=self._caps.segments,
-            effects=self._codec.effect_names(),
+            effects=effects,
         )
 
     # ---- GoveePlugApi surface ---------------------------------------------------------

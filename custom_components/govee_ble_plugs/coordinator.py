@@ -47,12 +47,14 @@ class GoveePlugDataUpdateCoordinator(PassiveBluetoothDataUpdateCoordinator):
         model: Optional[str] = None,
         token: Optional[str] = None,
         enable_polling: bool = True,
+        prefer_generic: bool = False,
     ) -> None:
         """Initialize."""
         self.api: Optional[GoveePlugApi] = api
         self.ble_device: Optional[BLEDevice] = ble_device
         self.hass = hass
         self._enable_polling = enable_polling
+        self._prefer_generic = prefer_generic
         self._polling_task: asyncio.Task | None = None
         self._polling_enabled = True
         self._consecutive_failures = 0
@@ -87,7 +89,9 @@ class GoveePlugDataUpdateCoordinator(PassiveBluetoothDataUpdateCoordinator):
         if self.api is None and self.ble_device is None:
             try:
                 self.ble_device = service_info.device
-                self.api = get_api_by_model(self._model, self.ble_device, self._token)
+                self.api = get_api_by_model(
+                    self._model, self.ble_device, self._token, self._prefer_generic
+                )
                 _LOGGER.info(
                     "Device discovered for Govee %s with address %s. "
                     "API initialized, entities will now be available.",
