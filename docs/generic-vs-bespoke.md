@@ -68,8 +68,11 @@ a restart while it's on).
   + `CommonLightCodec` (on/off, brightness, RGB, colour-temp) end-to-end on physical hardware.
   This is the common-set codec that the bulk of the experimental lights share, so it materially
   de-risks them — but it is one device, not per-SKU proof.
-- Still unconfirmed on hardware: the **RGBIC** path (`RgbicLightCodec`, different colour command),
-  the **appliance** on/off opcode per family, and **sensor** broadcast offsets for models whose
-  layout differs. These stay `experimental=True` pending a device of each kind.
+- **Hardware-confirmed (2026-06-30):** H6163 **per-segment colour** via the old-DreamColor
+  `0x05 0B` command (`OldDreamColorCodec`, 15 segments) through the `govee_ble_plugs.set_segment_color`
+  service.
+- Still unconfirmed on hardware: the **newer** RGBIC path (`RgbicLightCodec`, `0x05 15`, used by
+  the H61xx-era strips), the **appliance** on/off opcode per family, and **sensor** broadcast
+  offsets for models whose layout differs. These stay `experimental=True` pending a device of each kind.
 - The generic engines are also **unit-tested and byte-validated** against known byte vectors and
   the H6163 reference.
