@@ -3,23 +3,23 @@
     "name": "Govee BLE",
     "bluetooth": [
         {
-            "local_name": "ihoment_H5080_*",
+            "local_name": "GVH*",
             "connectable": false
         },
         {
-            "local_name": "ihoment_H5083_*",
+            "local_name": "ihoment_*",
             "connectable": false
         },
         {
-            "local_name": "ihoment_H5082_*",
+            "local_name": "Govee_*",
             "connectable": false
         },
         {
-            "local_name": "GVH5086*",
+            "local_name": "GBK_*",
             "connectable": false
         },
         {
-            "local_name": "ihoment_H6163_*",
+            "local_name": "Minger_*",
             "connectable": false
         }
     ],

@@ -76,10 +76,20 @@ def test_caps_shapes():
 
 # ---- manifest <-> registry consistency ------------------------------------------------
 def test_manifest_matchers_cover_registry_prefixes():
-    """Every registered name prefix must have a manifest bluetooth matcher, so newly
-    added families are actually discovered. Guards against forgetting the manifest."""
+    """Every registered name prefix must be covered by some manifest bluetooth matcher,
+    so registered families are actually discovered. Matchers may be broad (``GVH*``)."""
     with open(os.path.join(_PKGDIR, "manifest.json")) as f:
         manifest = json.load(f)
-    matcher_names = {m.get("local_name", "") for m in manifest.get("bluetooth", [])}
+    globs = [m.get("local_name", "").rstrip("*") for m in manifest.get("bluetooth", [])]
     for prefix in devices.all_name_prefixes():
-        assert f"{prefix}*" in matcher_names, f"manifest missing bluetooth matcher for {prefix}*"
+        assert any(prefix.startswith(g) for g in globs), \
+            f"no manifest bluetooth matcher covers {prefix!r}"
+
+
+def test_generic_light_sku_resolves_to_generic_api():
+    """A catalogued light SKU not otherwise claimed resolves to the generic light family."""
+    defn = devices.find_definition_by_model("H6159")
+    assert defn is not None and defn.category == "light"
+    assert defn.requires_pairing is False
+    # H6163 stays bespoke (its own definition), not the generic family.
+    assert "H6163" not in defn.models

@@ -1,18 +1,20 @@
 """Light definitions.
 
-The existing H6163 keeps its bespoke class (validated on hardware). Its factories import
-``light.py`` lazily because ``light.py`` -> ``entity`` -> ``coordinator`` -> ``devices``
-would otherwise form an import cycle at registry-population time.
+H6163 keeps its hardware-validated bespoke class. Every other catalogued Govee light SKU is
+registered as a generic, codec-driven common-set light (on/off, brightness, RGB, colour-temp,
+and the shared built-in effect catalogue). RGBIC per-segment colour is a future per-family
+codec; core control works on the common set today.
 
-Future light families (sub-project 2) register here too, most of them pointing at the
-generic light API + ``CommonLightCodec`` rather than a bespoke class.
+Lazy imports break the ``light -> entity -> coordinator -> devices`` cycle at registry-build
+time.
 """
 from __future__ import annotations
 
 from ..capabilities import LightCaps
-from ..registry import DeviceDefinition, register
+from ..registry import DeviceDefinition, find_definition_by_model, register
+from ._light_skus import LIGHT_SKUS, RGBIC_SKUS
 
-# Effect catalogue the bespoke H6163 already supports (see light.py async_set_effect).
+# --- H6163: keep the bespoke, hardware-validated implementation ------------------------
 _H6163_EFFECTS = (
     "Normal", "Music - Energetic", "Music - Spectrum (Red)", "Music - Spectrum (Blue)",
     "Music - Rolling (Red)", "Music - Rolling (Blue)", "Music - Rhythm", "Sunrise",
@@ -20,7 +22,7 @@ _H6163_EFFECTS = (
 )
 
 
-def _h6163_api(device, token, defn):
+def _h6163_api(device, token, defn, model):
     from ...light import GoveePlugH6163
     return GoveePlugH6163(device, token)
 
@@ -47,3 +49,29 @@ register(DeviceDefinition(
     default_polling=False,
     experimental=False,
 ))
+
+
+# --- Generic common-set lights (everything else in the catalogue) ----------------------
+def _generic_light_api(device, token, defn, model):
+    from ..generic_light import GenericLightApi
+    return GenericLightApi(device, token, defn, model)
+
+
+# Don't double-register a SKU that already has a bespoke definition (e.g. H6163).
+_generic_models = tuple(s for s in LIGHT_SKUS if find_definition_by_model(s) is None)
+
+register(DeviceDefinition(
+    models=_generic_models,
+    name_prefixes=(),  # discovered via broad manifest matchers + extract_sku
+    category="light",
+    caps=LightCaps(brightness=True, rgb=True, color_temp_k=(2000, 9000)),
+    api_factory=_generic_light_api,
+    pair_factory=None,        # BLE lights have no button-pairing token
+    requires_pairing=False,
+    default_polling=False,
+    experimental=True,        # protocol-derived; not all hardware-verified
+    display_model=None,
+))
+
+# RGBIC_SKUS is retained for a future per-segment codec; imported to keep it referenced.
+_ = RGBIC_SKUS

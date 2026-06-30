@@ -19,7 +19,7 @@ from ..registry import DeviceDefinition, register
 
 
 def _api(cls):
-    def factory(device, token, defn):
+    def factory(device, token, defn, model):
         return cls(device, token)
     return factory
 

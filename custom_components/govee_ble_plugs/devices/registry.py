@@ -14,8 +14,8 @@ if TYPE_CHECKING:  # avoid importing the HA-heavy / bleak modules at import time
 
 _LOGGER = logging.getLogger(__name__)
 
-# api_factory(device, token, definition) -> a GoveePlugApi-conforming object
-ApiFactory = Callable[["BLEDevice", Optional[str], "DeviceDefinition"], Any]
+# api_factory(device, token, definition, model) -> a GoveePlugApi-conforming object
+ApiFactory = Callable[["BLEDevice", Optional[str], "DeviceDefinition", str], Any]
 # pair_factory(device, definition) -> a GoveePairApi-conforming object
 PairFactory = Callable[["BLEDevice", "DeviceDefinition"], Any]
 
@@ -124,7 +124,7 @@ def get_api_by_model(model: str, device: "BLEDevice", token: Optional[str]) -> A
     defn = find_definition_by_model(model)
     if defn is None:
         raise ConfigEntryError(f"Unsupported model {model}")
-    return defn.api_factory(device, token, defn)
+    return defn.api_factory(device, token, defn, model)
 
 
 def get_pair_by_model(model: str, device: "BLEDevice") -> Any:

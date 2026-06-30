@@ -23,6 +23,7 @@ from .devices import (
     parse_advertisement_data,
     get_pair_by_model,
     default_enable_polling,
+    find_definition_by_model,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
@@ -119,11 +120,27 @@ class GoveeBlePlugsConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="no_devices_found")
 
         if user_input is not None:
+            self._bdaddr = user_input[CONF_ADDRESS]
+            # Resolve the discovery for the selected address.
+            self._discovered_adv = self._discovered_advs.get(self._bdaddr, self._discovered_adv)
             assert self._discovered_adv is not None
             self._name = self._discovered_adv.name
-            self._bdaddr = user_input[CONF_ADDRESS]
             await self.async_set_unique_id(self._bdaddr, raise_on_progress=False)
             self._abort_if_unique_id_configured()
+
+            model = self._discovered_adv.model
+            defn = find_definition_by_model(model)
+            if defn is not None and not defn.requires_pairing:
+                # Lights/sensors have no button-pairing token — create the entry directly.
+                return self.async_create_entry(
+                    title=self._name,
+                    data={
+                        CONF_ADDRESS: self._bdaddr,
+                        CONF_ACCESS_TOKEN: "",
+                        CONF_MODEL: model,
+                    },
+                    options={CONF_ENABLE_POLLING: default_enable_polling(model)},
+                )
             return await self.async_step_link()
 
         return self.async_show_form(

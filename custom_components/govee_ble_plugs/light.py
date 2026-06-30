@@ -464,6 +464,32 @@ class GoveePlugLight(GoveePlugEntity, LightEntity):
         "Snowflake",
     ]
 
+    def __init__(self, coordinator, config_entry, port, port_name):
+        super().__init__(coordinator, config_entry, port, port_name)
+        # Generic, codec-driven lights advertise their capabilities; derive the HA light
+        # attributes from them. The bespoke H6163 has no light_caps() and keeps the class
+        # defaults above (behaviour-preserving).
+        api = coordinator.api
+        if api is not None and hasattr(api, "light_caps"):
+            self._apply_caps(api.light_caps())
+
+    def _apply_caps(self, caps) -> None:
+        modes: set[ColorMode] = set()
+        if caps.rgb:
+            modes.add(ColorMode.RGB)
+        if caps.color_temp_k:
+            modes.add(ColorMode.COLOR_TEMP)
+            self._attr_min_color_temp_kelvin, self._attr_max_color_temp_kelvin = caps.color_temp_k
+        if not modes:
+            modes = {ColorMode.BRIGHTNESS} if caps.brightness else {ColorMode.ONOFF}
+        self._attr_supported_color_modes = modes
+        if caps.effects:
+            self._attr_supported_features = LightEntityFeature.EFFECT
+            self._attr_effect_list = list(caps.effects)
+        else:
+            self._attr_supported_features = LightEntityFeature(0)
+            self._attr_effect_list = None
+
     @property
     def color_mode(self) -> ColorMode:
         """Return the currently active color mode."""
