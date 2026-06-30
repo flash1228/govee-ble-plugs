@@ -12,6 +12,7 @@ from homeassistant.const import (
     UnitOfElectricPotential,
     UnitOfEnergy,
     UnitOfPower,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -25,30 +26,94 @@ from .entity import GoveePlugEntity
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up power-monitoring sensors for devices that support them (H5086)."""
+    """Set up power-monitoring (H5086) and broadcast metric (thermo-hygrometer) sensors."""
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator = entry_data["coordinator"]
-
     api = coordinator.api
+    entities: list = []
+
+    # Power-monitoring sensors (H5086).
     if api is not None and hasattr(api, "supports_power_monitoring"):
-        supports = api.supports_power_monitoring()
+        supports_power = api.supports_power_monitoring()
     else:
         # Device not discovered yet — fall back to the configured model so the
         # sensors still register (they report unavailable until data arrives).
-        supports = entry_data.get("model") == "H5086"
-
-    if not supports:
-        return
-
-    async_add_entities(
-        [
+        supports_power = entry_data.get("model") == "H5086"
+    if supports_power:
+        entities += [
             GoveePlugVoltageSensor(coordinator, entry),
             GoveePlugCurrentSensor(coordinator, entry),
             GoveePlugPowerSensor(coordinator, entry),
             GoveePlugEnergySensor(coordinator, entry),
             GoveePlugPowerFactorSensor(coordinator, entry),
         ]
-    )
+
+    # Broadcast metric sensors (thermo-hygrometers): temperature/humidity/battery.
+    metrics: tuple[str, ...] = ()
+    if api is not None and hasattr(api, "sensor_metrics"):
+        metrics = api.sensor_metrics()
+    else:
+        from .devices import find_definition_by_model
+        from .devices.capabilities import SensorCaps
+
+        defn = find_definition_by_model(entry_data.get("model") or "")
+        if defn is not None and defn.category == "sensor" and isinstance(defn.caps, SensorCaps):
+            metrics = defn.caps.metrics
+    entities += [GoveeMetricSensor(coordinator, entry, m) for m in metrics if m in METRIC_SPECS]
+
+    if entities:
+        async_add_entities(entities)
+
+
+# Broadcast metric specs: metric key -> HA sensor description bits.
+METRIC_SPECS: dict[str, dict] = {
+    "temperature": {
+        "name": "Temperature",
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "unit": UnitOfTemperature.CELSIUS,
+    },
+    "humidity": {
+        "name": "Humidity",
+        "device_class": SensorDeviceClass.HUMIDITY,
+        "unit": PERCENTAGE,
+    },
+    "battery": {
+        "name": "Battery",
+        "device_class": SensorDeviceClass.BATTERY,
+        "unit": PERCENTAGE,
+    },
+}
+
+
+class GoveeMetricSensor(GoveePlugEntity, SensorEntity):
+    """A single broadcast-derived metric (temperature/humidity/battery)."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, config_entry: ConfigEntry, metric: str):
+        spec = METRIC_SPECS[metric]
+        self._metric = metric
+        self._attr_name = spec["name"]
+        super().__init__(coordinator, config_entry, None, spec["name"])
+        self._attr_unique_id = f"{self._address}-{metric}"
+        self._attr_device_class = spec["device_class"]
+        self._attr_native_unit_of_measurement = spec["unit"]
+
+    @property
+    def available(self) -> bool:
+        api = self.coordinator.api
+        return (
+            api is not None
+            and hasattr(api, "get_sensor_values")
+            and self._metric in api.get_sensor_values()
+        )
+
+    @property
+    def native_value(self):
+        api = self.coordinator.api
+        if api is None or not hasattr(api, "get_sensor_values"):
+            return None
+        return api.get_sensor_values().get(self._metric)
 
 
 class GoveePlugSensorBase(GoveePlugEntity, SensorEntity):
