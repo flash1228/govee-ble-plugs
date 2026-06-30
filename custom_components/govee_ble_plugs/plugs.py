@@ -77,84 +77,9 @@ class GoveePairApi(T.Protocol):
     async def finish(self) -> str | None: ...
 
 
-def get_api_by_model(model: str, device: BLEDevice, token: str) -> GoveePlugApi:
-    if model == "H5080":
-        return GoveePlugH5080(device, token)
-
-    if model == "H5083":
-        return GoveePlugH5083(device, token)
-
-    if model == "H5082":
-        return GoveePlugH5082(device, token)
-
-    if model == "H5086":
-        return GoveePlugH5086(device, token)
-
-    if model == "H6163":
-        # Import here to avoid circular dependency
-        from .light import GoveePlugH6163
-        return GoveePlugH6163(device, token)
-
-    raise ConfigEntryError(f"Unsupported model {model}")
-
-
-# Models whose state is NOT fully carried by BLE advertisements and therefore benefit from
-# active status polling. Currently only the H5086 (its power/energy/voltage/etc. sensors).
-# Everything else — the on/off plugs and the light — gets state from advertisements plus a
-# one-time startup poll, so polling defaults off for them (continuous polling there just churns
-# BLE connections, which is costly over BLE proxies / weak links).
-ACTIVE_POLLING_MODELS = {"H5086"}
-
-
-def default_enable_polling(model: str) -> bool:
-    """Default for a new config entry's 'enable_polling' option, by model."""
-    return model in ACTIVE_POLLING_MODELS
-
-
-def get_pair_by_model(model: str, device: BLEDevice) -> GoveePairApi:
-    if model == "H5080":
-        return GoveePlugPairer(
-            device,
-            GoveePlugH5080.RECV_CHARACTERISTIC_UUID,
-            GoveePlugH5080.SEND_CHARACTERISTIC_UUID,
-            GoveePlugH5080.MSG_GET_AUTH_KEY,
-        )
-
-    if model == "H5083":
-        return GoveePlugPairer(
-            device,
-            GoveePlugH5083.RECV_CHARACTERISTIC_UUID,
-            GoveePlugH5083.SEND_CHARACTERISTIC_UUID,
-            GoveePlugH5083.MSG_GET_AUTH_KEY,
-        )
-
-    if model == "H5082":
-        return GoveePlugPairer(
-            device,
-            GoveePlugH5082.RECV_CHARACTERISTIC_UUID,
-            GoveePlugH5082.SEND_CHARACTERISTIC_UUID,
-            GoveePlugH5082.MSG_GET_AUTH_KEY,
-        )
-
-    if model == "H5086":
-        return GoveePlugPairer(
-            device,
-            GoveePlugH5086.RECV_CHARACTERISTIC_UUID,
-            GoveePlugH5086.SEND_CHARACTERISTIC_UUID,
-            GoveePlugH5086.MSG_GET_AUTH_KEY,
-        )
-
-    if model == "H6163":
-        # Import here to avoid circular dependency
-        from .light import GoveePlugH6163
-        return NoOpPlugPairer(
-            device,
-            GoveePlugH6163.RECV_CHARACTERISTIC_UUID,
-            GoveePlugH6163.SEND_CHARACTERISTIC_UUID,
-            GoveePlugH6163.MSG_GET_AUTH_KEY,
-        )
-
-    raise ConfigEntryError(f"Unsupported model {model}")
+# Model/advertisement dispatch lives in ``devices/registry.py`` (data-driven).
+# ``get_api_by_model``, ``get_pair_by_model``, ``default_enable_polling`` and
+# ``parse_advertisement_data`` are re-exported from ``.devices``; import them from there.
 
 
 @dataclasses.dataclass
@@ -164,40 +89,6 @@ class GoveeAdvertisementData:
     device: BLEDevice
     model: str
 
-
-def parse_advertisement_data(
-    device: BLEDevice, adv: AdvertisementData
-) -> GoveeAdvertisementData | None:
-    local_name = adv.local_name
-    if not local_name:
-        return
-
-    if local_name.startswith("ihoment_H5080_"):
-        return GoveeAdvertisementData(
-            local_name, device.address, device, GoveePlugH5080.MODEL
-        )
-
-    if local_name.startswith("ihoment_H5083_"):
-        return GoveeAdvertisementData(
-            local_name, device.address, device, GoveePlugH5083.MODEL
-        )
-
-    if local_name.startswith("ihoment_H5082_"):
-        return GoveeAdvertisementData(
-            local_name, device.address, device, GoveePlugH5082.MODEL
-        )
-
-    if local_name.startswith("GVH5086"):
-        return GoveeAdvertisementData(
-            local_name, device.address, device, GoveePlugH5086.MODEL
-        )
-
-    if local_name.startswith("ihoment_H6163_"):
-        # Import here to avoid circular dependency
-        from .light import GoveePlugH6163
-        return GoveeAdvertisementData(
-            local_name, device.address, device, GoveePlugH6163.MODEL
-        )
 
 
 class GoveePlugH508x:

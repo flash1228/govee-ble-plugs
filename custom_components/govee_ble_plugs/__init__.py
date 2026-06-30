@@ -12,7 +12,8 @@ _LOGGER = logging.getLogger(__name__)
 from .const import DOMAIN, CONF_ENABLE_POLLING
 from .coordinator import GoveePlugDataUpdateCoordinator
 
-from .plugs import GoveePlugApi, get_api_by_model, default_enable_polling
+from .plugs import GoveePlugApi
+from .devices import get_api_by_model, default_enable_polling
 
 PLATFORMS: list[str] = [Platform.SWITCH, Platform.LIGHT, Platform.SENSOR]
 

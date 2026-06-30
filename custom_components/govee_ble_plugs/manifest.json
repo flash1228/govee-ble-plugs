@@ -1,6 +1,6 @@
 {
     "domain": "govee_ble_plugs",
-    "name": "Govee BLE Plugs",
+    "name": "Govee BLE",
     "bluetooth": [
         {
             "local_name": "ihoment_H5080_*",

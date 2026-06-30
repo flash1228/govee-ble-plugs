@@ -12,7 +12,8 @@ from homeassistant.components.bluetooth.passive_update_coordinator import (
 from homeassistant.const import Platform
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 
-from .plugs import GoveePlugApi, get_api_by_model
+from .plugs import GoveePlugApi
+from .devices import get_api_by_model
 
 if TYPE_CHECKING:
     from bleak.backends.device import BLEDevice

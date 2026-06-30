@@ -16,11 +16,13 @@ from homeassistant.core import callback
 
 from .const import DOMAIN, CONF_ENABLE_POLLING
 from .plugs import (
-    parse_advertisement_data,
     GoveeAdvertisementData,
+    GoveePairApi,
+)
+from .devices import (
+    parse_advertisement_data,
     get_pair_by_model,
     default_enable_polling,
-    GoveePairApi,
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
