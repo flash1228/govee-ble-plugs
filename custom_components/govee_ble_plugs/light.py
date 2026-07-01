@@ -191,6 +191,56 @@ class GoveePlugH6xxx:
                 except Exception:
                     pass
 
+    async def async_probe_color_read(self, pages: int = 6) -> list[str]:
+        """DIAGNOSTIC: send ``AA A5 <page>`` for each page and collect the raw replies, to
+        reverse-engineer the per-segment colour readback layout. Returns hex reply strings.
+        """
+        from .devices.codecs.base import single_frame
+
+        client = None
+        name = f"{self._device.name} ({self._device.address})"
+        replies: list[str] = []
+        try:
+            async with self._connection_lock:
+                try:
+                    client = await establish_connection(
+                        BleakClient, self._device, name, max_attempts=1, connection_timeout=10.0
+                    )
+                except Exception as e:
+                    _LOGGER.warning("probe_color_read: connect failed for %s: %s", name, e)
+                    return replies
+
+            got = asyncio.Event()
+            last = {"hex": None}
+
+            def _on_notify(_char, data) -> None:
+                frame = bytes(data)
+                _LOGGER.debug("probe_color_read %s RX: %s", name, frame.hex())
+                last["hex"] = frame.hex()
+                got.set()
+
+            await client.start_notify(self._RECV_CHARACTERISTIC_UUID, _on_notify)
+
+            for page in range(1, max(1, pages) + 1):
+                got.clear()
+                frame = single_frame(0xAA, 0xA5, bytes([page]))
+                _LOGGER.debug("probe_color_read %s TX page %d: %s", name, page, frame.hex())
+                try:
+                    await client.write_gatt_char(self._SEND_CHARACTERISTIC_UUID, frame, response=False)
+                    await asyncio.wait_for(got.wait(), timeout=3.0)
+                    replies.append(f"page {page}: {last['hex']}")
+                except Exception as e:
+                    replies.append(f"page {page}: no reply ({type(e).__name__})")
+            return replies
+        finally:
+            if client is not None:
+                try:
+                    if client.is_connected:
+                        await client.disconnect()
+                    await asyncio.sleep(0.1)
+                except Exception:
+                    pass
+
 
 class GoveePlugH6163(GoveePlugH6xxx):
     MODEL = "H6163"
@@ -484,6 +534,11 @@ async def async_setup_entry(
         },
         "async_set_segment_colors",
     )
+    platform.async_register_entity_service(
+        "probe_color_read",
+        {vol.Optional("pages", default=6): vol.All(vol.Coerce(int), vol.Range(min=1, max=32))},
+        "async_probe_color_read",
+    )
 
 
 class GoveePlugLight(GoveePlugEntity, LightEntity):
@@ -698,6 +753,25 @@ class GoveePlugLight(GoveePlugEntity, LightEntity):
             await api.async_set_segment_color(group["segments"], tuple(group["rgb_color"]))
         api._is_on = True
         self.async_write_ha_state()
+
+    async def async_probe_color_read(self, pages: int = 6) -> None:
+        """DIAGNOSTIC service: probe the ``AA A5`` per-segment colour readback and report the
+        raw replies via a persistent notification (and the debug log), so the readback layout
+        can be reverse-engineered on real hardware."""
+        api = self.coordinator.api
+        if api is None or not hasattr(api, "async_probe_color_read"):
+            _LOGGER.warning("probe_color_read: not supported for this device")
+            return
+        replies = await api.async_probe_color_read(int(pages))
+        body = "\n".join(replies) if replies else "(no replies — device did not answer AA A5)"
+        message = (
+            f"Model: {getattr(api, 'MODEL', '?')}\n"
+            f"Sent `AA A5 <page>` for pages 1..{int(pages)}:\n\n{body}"
+        )
+        _LOGGER.warning("probe_color_read result:\n%s", message)
+        from homeassistant.components import persistent_notification
+
+        persistent_notification.async_create(self.hass, message, title="Govee BLE — color-read probe")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the light."""

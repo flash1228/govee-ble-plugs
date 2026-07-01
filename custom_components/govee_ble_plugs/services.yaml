@@ -46,3 +46,25 @@ set_segment_colors:
           segments: [8, 9, 10]
       selector:
         object:
+
+probe_color_read:
+  name: Probe color readback (diagnostic)
+  description: >-
+    Diagnostic: send the AA A5 per-segment color read for several pages and report the raw
+    replies via a persistent notification, to reverse-engineer the readback layout.
+  target:
+    entity:
+      integration: govee_ble_plugs
+      domain: light
+  fields:
+    pages:
+      name: Pages
+      description: How many pages (1..32) to request.
+      required: false
+      default: 6
+      example: 6
+      selector:
+        number:
+          min: 1
+          max: 32
+          mode: box
