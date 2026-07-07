@@ -4,6 +4,8 @@ on: [push, pull_request]
 
 jobs:
   lint:
+    # Runs on GitHub only; skipped on the Forgejo runner.
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
