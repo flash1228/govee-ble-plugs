@@ -1,0 +1,6 @@
+# Test dependencies for the Govee BLE integration.
+# HA pulls in the bluetooth stack (bleak/habluetooth), voluptuous,
+# cryptography and aiohttp transitively.
+pytest>=7.4.0
+homeassistant>=2024.1.0
+bleak-retry-connector
