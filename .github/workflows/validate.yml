@@ -14,6 +14,8 @@ on:
 jobs:
   hassfest: # https://developers.home-assistant.io/blog/2020/04/16/hassfest
     name: "Hassfest Validation"
+    # Docker container action; the Forgejo runner has no docker socket. GitHub only.
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: "ubuntu-latest"
     steps:
         - name: "Checkout the repository"
