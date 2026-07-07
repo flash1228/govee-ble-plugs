@@ -4,3 +4,9 @@
 pytest>=7.4.0
 homeassistant>=2024.1.0
 bleak-retry-connector
+
+# HA's bluetooth component transitively imports homeassistant.components.usb,
+# which imports `serial`. Core `pip install homeassistant` doesn't pull pyserial
+# (component requirements are normally installed on-demand at runtime), so a clean
+# CI venv needs it explicitly or the integration import fails.
+pyserial
