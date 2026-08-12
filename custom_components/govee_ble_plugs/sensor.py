@@ -45,7 +45,10 @@ async def async_setup_entry(
             GoveePlugCurrentSensor(coordinator, entry),
             GoveePlugPowerSensor(coordinator, entry),
             GoveePlugEnergySensor(coordinator, entry),
-            GoveePlugPowerFactorSensor(coordinator, entry),
+            # Power-factor sensor omitted: the Govee APK shows the ee19 payload is
+            # only 13 bytes (runtime:3 + energy:3 + V:2 + A:2 + W:3); bytes [15:19]
+            # are padding, not a power-factor byte. See plugs.py:_parse_power_response.
+            # GoveePlugPowerFactorSensor(coordinator, entry),
         ]
 
     # Broadcast metric sensors (thermo-hygrometers): temperature/humidity/battery.

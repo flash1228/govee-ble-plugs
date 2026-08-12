@@ -10,6 +10,7 @@ Wraps a connected bleak client and layers on the recovered protocol:
 The cipher itself lives in ``crypto.py``. This module is BLE-aware but kept free of Home
 Assistant imports so it can be exercised against a fake client in tests.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,11 +56,20 @@ class GoveeBleSession:
         self.crypto.plaintext = True
 
     def _on_notify(self, _char, data) -> None:
+        raw = bytes(data)
         try:
-            dec = self.crypto.decrypt(bytes(data))
+            dec = self.crypto.decrypt(raw)
         except Exception:  # pragma: no cover - defensive
-            _LOGGER.debug("failed to decrypt notify: %s", bytes(data).hex())
+            _LOGGER.debug("failed to decrypt notify raw=%s", raw.hex())
             return
+        _LOGGER.debug(
+            "notify raw=%s dec=%s len=%d head=%s tail=%s",
+            raw.hex(),
+            dec.hex(),
+            len(dec),
+            dec[:4].hex() if len(dec) >= 4 else dec.hex(),
+            dec[-4:].hex() if len(dec) >= 4 else "",
+        )
         self._q.put_nowait(dec)
 
     def _drain(self) -> None:
@@ -128,15 +138,28 @@ class GoveeBleSession:
 
     async def fetch_token(self, retries: int = 45, delay: float = 0.4, timeout: float = 1.0):
         """Poll ``aa b1`` until the device reports the token ready (resp[2]==1). The caller must
-        get the user to SHORT-press the plug button to open the ~5s window. Returns the 16-byte
-        token (resp[3:19]) or None."""
+        get the user to SHORT-press the plug button to open the ~5s window.
+
+        Per the Govee APK (SecretController.c) the token is 8 bytes at resp[3:11]
+        (after the proType/cmdType/status header), not 16. Returns the 8-byte token or None.
+        """
         for _ in range(retries):
             r = await self.exchange(
-                bytes([CMD_GET_AUTH_KEY, SUB_GET_AUTH_KEY]), CMD_GET_AUTH_KEY, SUB_GET_AUTH_KEY,
+                bytes([CMD_GET_AUTH_KEY, SUB_GET_AUTH_KEY]),
+                CMD_GET_AUTH_KEY,
+                SUB_GET_AUTH_KEY,
                 timeout=timeout,
             )
-            if r and len(r) >= 19 and r[2] == 1:
-                self.token = bytes(r[3:19])
+            if r:
+                _LOGGER.debug(
+                    "fetch_token resp len=%d head=%s full=%s",
+                    len(r),
+                    r[:11].hex(),
+                    r.hex(),
+                )
+            if r and len(r) >= 11 and r[2] == 1:
+                self.token = bytes(r[3:11])
+                _LOGGER.debug("fetch_token ok token=%s (8 bytes)", self.token.hex())
                 return self.token
             await asyncio.sleep(delay)
         return None
