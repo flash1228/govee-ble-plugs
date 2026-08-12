@@ -49,7 +49,7 @@ class FakeGoveeDevice:
                 return [self._reply(bytes([0xAA, 0xB1, 0x01]) + self.token[:8])]
             return [self._reply(bytes([0xAA, 0xB1, 0x00]) + b"\xde\xad\xbe\xef\xca\xfe\x00\x01")]
         if c == 0x33 and s == 0xB2:
-            ok = f[2:9] == self.token[:7]
+            ok = f[2:10] == self.token[:8]
             self.authed = self.authed or ok
             return [self._reply(bytes([0x33, 0xB2, 0x00 if ok else 0x01]))]
         if c == 0x33 and s == 0x01:
