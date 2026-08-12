@@ -10,6 +10,7 @@ plugs.py only needs ``homeassistant.exceptions.ConfigEntryError``; we stub that 
 the component dir as a package so the real parser imports without a full Home Assistant
 install and without running the (HA-heavy) package ``__init__``.
 """
+
 import importlib
 import os
 import sys
@@ -94,3 +95,103 @@ def test_h5082_both_on():
 
 def test_h5082_both_off():
     assert _parse_h5082(0x00) == [False, False]
+
+
+# ---- H5086 power frame parsing ----
+# Frame layout (per APK DeviceElectricController.d()/e()):
+#   ee 19 [runtime:3 BE][energy:3 BE][voltage:2 BE][current:2 BE][power:3 BE] [padding:4]
+# The XOR checksum at byte[19] is recomputed by build_frame for unit-test inputs.
+
+
+def _power_frame(
+    runtime: int, energy_raw: int, voltage_raw: int, current_raw: int, power_raw: int
+) -> bytearray:
+    payload = bytes(
+        [
+            # proType, cmdType
+            0xEE,
+            0x19,
+            # runtime:3 BE
+            (runtime >> 16) & 0xFF,
+            (runtime >> 8) & 0xFF,
+            runtime & 0xFF,
+            # energy:3 BE
+            (energy_raw >> 16) & 0xFF,
+            (energy_raw >> 8) & 0xFF,
+            energy_raw & 0xFF,
+            # voltage:2 BE
+            (voltage_raw >> 8) & 0xFF,
+            voltage_raw & 0xFF,
+            # current:2 BE
+            (current_raw >> 8) & 0xFF,
+            current_raw & 0xFF,
+            # power:3 BE
+            (power_raw >> 16) & 0xFF,
+            (power_raw >> 8) & 0xFF,
+            power_raw & 0xFF,
+            # padding bytes (zeros) — build_frame fills to 20 bytes with checksum at [19]
+        ]
+    )
+    return bytearray(crypto.build_frame(payload))
+
+
+def _parse_h5086_power(frame: bytearray):
+    api = plugs.GoveePlugH5086.__new__(plugs.GoveePlugH5086)
+    api._power_data = plugs.GoveePowerData()
+    # _parse_power_response only reads self._power_data and self._device.address (in the log
+    # line). _device may be None for the duration of the test; the log call tolerates that.
+    api._device = None
+    api._parse_power_response(frame)
+    return api._power_data
+
+
+class _FakeDevice:
+    address = "00:00:00:00:00:00"
+
+
+def _parse_h5086_power_logged(frame: bytearray):
+    api = plugs.GoveePlugH5086.__new__(plugs.GoveePlugH5086)
+    api._power_data = plugs.GoveePowerData()
+    api._device = _FakeDevice()
+    api._parse_power_response(frame)
+    return api._power_data
+
+
+def test_h5086_power_parse_known_values():
+    # 230.50 V, 0.12 A, 27.66 W, 100 Wh energy, 3600 s runtime
+    # energy divisor is /10000 (kWh) then *1000 (Wh) — so for 100 Wh:
+    #   energy_raw / 10000 * 1000 == 100  ->  energy_raw = 10000 * 100 / 1000 = 1000
+    frame = _power_frame(
+        runtime=3600, energy_raw=1000, voltage_raw=23050, current_raw=12, power_raw=2766
+    )
+    pd = _parse_h5086_power_logged(frame)
+    assert pd is not None
+    assert pd.time_on == 3600
+    assert pd.voltage == 230.50
+    assert pd.current == 0.12
+    assert pd.power == 27.66
+    # energy = 1000 / 10000.0 * 1000.0 = 100.0 Wh
+    assert abs(pd.energy - 100.0) < 1e-6
+    # power factor is no longer parsed (APK shows only 13 payload bytes)
+    assert pd.power_factor is None
+
+
+def test_h5086_power_parse_short_frame_ignored():
+    # A frame shorter than 15 bytes should be ignored (no exception, no update).
+    frame = bytearray(b"\xee\x19\x01\x02\x03")
+    api = plugs.GoveePlugH5086.__new__(plugs.GoveePlugH5086)
+    api._power_data = plugs.GoveePowerData(time_on=999)
+    api._device = _FakeDevice()
+    api._parse_power_response(frame)
+    assert api._power_data.time_on == 999  # unchanged
+
+
+def test_h5086_power_parse_wrong_header_ignored():
+    # Frame starting with anything other than ee 19 must not parse.
+    frame = _power_frame(runtime=10, energy_raw=0, voltage_raw=0, current_raw=0, power_raw=0)
+    frame[0] = 0x33  # corrupt the header
+    api = plugs.GoveePlugH5086.__new__(plugs.GoveePlugH5086)
+    api._power_data = plugs.GoveePowerData(time_on=999)
+    api._device = _FakeDevice()
+    api._parse_power_response(frame)
+    assert api._power_data.time_on == 999  # unchanged

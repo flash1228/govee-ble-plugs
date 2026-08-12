@@ -25,11 +25,11 @@ COMMAND_COOLDOWN_SECONDS = 3.0
 class GoveePowerData:
     """Power-monitoring snapshot from a Govee plug (currently the H5086)."""
 
-    time_on: T.Optional[int] = None       # seconds the outlet has been on
-    energy: T.Optional[float] = None      # Wh accumulated
-    voltage: T.Optional[float] = None     # V
-    current: T.Optional[float] = None     # A
-    power: T.Optional[float] = None       # W
+    time_on: T.Optional[int] = None  # seconds the outlet has been on
+    energy: T.Optional[float] = None  # Wh accumulated
+    voltage: T.Optional[float] = None  # V
+    current: T.Optional[float] = None  # A
+    power: T.Optional[float] = None  # W
     power_factor: T.Optional[int] = None  # percent
 
 
@@ -88,7 +88,6 @@ class GoveeAdvertisementData:
     address: str
     device: BLEDevice
     model: str
-
 
 
 class GoveePlugH508x:
@@ -180,7 +179,7 @@ class GoveePlugH508x:
                     _LOGGER.error(
                         "failed to set state: %s - No available connection slots. "
                         "Please disconnect unused devices or add more BLE proxies.",
-                        device_name
+                        device_name,
                     )
                     # Mark all pending messages as failed
                     while not must_process.empty():
@@ -354,6 +353,7 @@ class GoveePlugH508x:
         """Parse a power-monitoring response. Overridden by H5086."""
         pass
 
+
 # H6163 and H6xxx base class moved to light.py
 
 
@@ -402,11 +402,15 @@ class GoveePlugH5080(GoveePlugH508x):
                     mfr_id,
                     mfr_id,
                     mfr_data.hex(),
-                    len(mfr_data)
+                    len(mfr_data),
                 )
 
         mfr_data = next(
-            (adv.manufacturer_data[m] for m in GOvee_MANUFACTURER_IDS if m in adv.manufacturer_data),
+            (
+                adv.manufacturer_data[m]
+                for m in GOvee_MANUFACTURER_IDS
+                if m in adv.manufacturer_data
+            ),
             None,
         )
         if mfr_data is not None and len(mfr_data) >= 5:
@@ -421,7 +425,10 @@ class GoveePlugH5080(GoveePlugH508x):
             # See docs/superpowers/notes/2026-06-05-h5080-ble-protocol.md.
             _LOGGER.debug(
                 "H5080 %s: advert %s -> is_on=%s (state byte 0x%02x)",
-                device.address, mfr_data.hex(), self._is_on, mfr_data[-1],
+                device.address,
+                mfr_data.hex(),
+                self._is_on,
+                mfr_data[-1],
             )
             if old_state != self._is_on:
                 _LOGGER.info(
@@ -429,28 +436,28 @@ class GoveePlugH5080(GoveePlugH508x):
                     device.address,
                     self._is_on,
                     old_state,
-                    mfr_data.hex()
+                    mfr_data.hex(),
                 )
             else:
                 _LOGGER.debug(
                     "H5080 %s: State updated from advertisement - is_on=%s (mfr_data=%s)",
                     device.address,
                     self._is_on,
-                    mfr_data.hex()
+                    mfr_data.hex(),
                 )
         elif mfr_data is not None:
             _LOGGER.debug(
                 "H5080 %s: Manufacturer data too short - len=%d, expected>=5, data=%s",
                 device.address,
                 len(mfr_data),
-                mfr_data.hex()
+                mfr_data.hex(),
             )
         else:
             _LOGGER.debug(
                 "H5080 %s: No matching manufacturer data (looking for %s), received: %s",
                 device.address,
                 GOvee_MANUFACTURER_IDS,
-                list(adv.manufacturer_data.keys()) if adv.manufacturer_data else "none"
+                list(adv.manufacturer_data.keys()) if adv.manufacturer_data else "none",
             )
 
     async def async_turn_on(self, port: int):
@@ -533,7 +540,11 @@ class GoveePlugH5083(GoveePlugH508x):
         for mfr_id, mfr_data in adv.manufacturer_data.items():
             _LOGGER.debug(
                 "H5083 %s: Received manufacturer data - mfr_id=%d(0x%04x), data=%s, len=%d",
-                device.address, mfr_id, mfr_id, mfr_data.hex(), len(mfr_data),
+                device.address,
+                mfr_id,
+                mfr_id,
+                mfr_data.hex(),
+                len(mfr_data),
             )
             self._device = device
             if len(mfr_data) > 0:
@@ -541,7 +552,10 @@ class GoveePlugH5083(GoveePlugH508x):
                 if old_state != self._is_on:
                     _LOGGER.info(
                         "H5083 %s: State changed from advertisement - is_on=%s (was=%s, mfr_data=%s)",
-                        device.address, self._is_on, old_state, mfr_data.hex(),
+                        device.address,
+                        self._is_on,
+                        old_state,
+                        mfr_data.hex(),
                     )
 
     async def async_turn_on(self, port: int):
@@ -615,7 +629,11 @@ class GoveePlugH5082(GoveePlugH508x):
                 device.name or device.address,
             )
             return
-        old_state = self._is_on.copy() if self._is_on[0] is not None and self._is_on[1] is not None else [None, None]
+        old_state = (
+            self._is_on.copy()
+            if self._is_on[0] is not None and self._is_on[1] is not None
+            else [None, None]
+        )
         for mfr_id, mfr_data in adv.manufacturer_data.items():
             _LOGGER.debug(
                 "H5082 %s: Received manufacturer data - mfr_id=%d(0x%04x), data=%s, len=%d",
@@ -623,7 +641,7 @@ class GoveePlugH5082(GoveePlugH508x):
                 mfr_id,
                 mfr_id,
                 mfr_data.hex(),
-                len(mfr_data)
+                len(mfr_data),
             )
             self._device = device
             if len(mfr_data) > 0:
@@ -639,7 +657,7 @@ class GoveePlugH5082(GoveePlugH508x):
                         new_right,
                         old_state[0],
                         old_state[1],
-                        mfr_data.hex()
+                        mfr_data.hex(),
                     )
                 else:
                     _LOGGER.debug(
@@ -647,7 +665,7 @@ class GoveePlugH5082(GoveePlugH508x):
                         device.address,
                         new_left,
                         new_right,
-                        mfr_data.hex()
+                        mfr_data.hex(),
                     )
 
     async def async_turn_on(self, port: int):
@@ -714,10 +732,14 @@ class GoveePlugH5086(GoveePlugH508x):
     MSG_TURN_OFF = _b("3301000000000000000000000000000000000032")
     MSG_QUERY_STATUS = _b("3300000000000000000000000000000000000033")
     # Request power-monitoring data; the device replies with an ee19 frame.
-    MSG_GET_POWER = _b("aa000000000000000000000000000000000000aa")
+    # Per the Govee APK (DeviceElectricController.getCommandType()=25=0x19), the
+    # power query is proType=0xAA, cmdType=0x19 (not 0x00). XOR checksum = aa^19 = b3.
+    MSG_GET_POWER = _b("aa190000000000000000000000000000000000b3")
 
     SEND_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b11"
-    RECV_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b10"
+    # Per the Govee APK (BleComm.java), the device returns notifications via the
+    # 1910 service UUID (the app's getServiceUuid()), not 2b10. The write char is 2b11.
+    RECV_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d1910"
 
     def __init__(self, device: BLEDevice, token: str) -> None:
         super().__init__(
@@ -747,7 +769,7 @@ class GoveePlugH5086(GoveePlugH508x):
                 mfr_id,
                 mfr_id,
                 mfr_data.hex(),
-                len(mfr_data)
+                len(mfr_data),
             )
             self._device = device
             # H5086 advertisement format: ec 00 01 01 [STATE] 00 — the on/off
@@ -762,14 +784,14 @@ class GoveePlugH5086(GoveePlugH508x):
                         device.address,
                         new_state,
                         old_state,
-                        mfr_data.hex()
+                        mfr_data.hex(),
                     )
                 else:
                     _LOGGER.debug(
                         "H5086 %s: State updated from advertisement - is_on=%s (mfr_data=%s)",
                         device.address,
                         new_state,
-                        mfr_data.hex()
+                        mfr_data.hex(),
                     )
 
     async def async_turn_on(self, port: int):
@@ -807,34 +829,42 @@ class GoveePlugH5086(GoveePlugH508x):
     def _parse_power_response(self, data: bytearray) -> None:
         """Parse an ee19 power-monitoring frame.
 
-        Layout (big-endian): ee19 [time:3][energy:3][voltage:2][current:2][power:3][factor:1]
-        - time: seconds the outlet has been on
-        - energy: 1/10 Wh
-        - voltage: 1/100 V
-        - current: 1/100 A
-        - power: 1/100 W
-        - power_factor: percent
-        (Protocol from nsheaps@'s H5086 work; unverified here.)
+        Layout (big-endian), per the Govee APK DeviceElectricController.d():
+          ee 19 [runtime:3][energy:3][voltage:2][current:2][power:3] [padding:4]
+        - runtime:    seconds the outlet has been on (raw int, no scaling)
+        - energy:     1/10000 kWh accumulated (APK divisor = 10000.0f)
+        - voltage:    1/100 V
+        - current:    1/100 A
+        - power:      1/100 W
+        - power_factor: removed — APK shows only 13 payload bytes; bytes [15:19]
+          are padding, not a power-factor byte.
+        (Protocol offsets confirmed against DeviceElectricController.d()/e() in the APK
+        decompilation.)
         """
-        if len(data) < 16 or data[0] != 0xEE or data[1] != 0x19:
+        if len(data) < 15 or data[0] != 0xEE or data[1] != 0x19:
             return
         time_on = (data[2] << 16) | (data[3] << 8) | data[4]
-        energy = ((data[5] << 16) | (data[6] << 8) | data[7]) / 10.0
+        # APK divisor is /10000.0f for kWh; convert to Wh for the WATT_HOUR sensor unit.
+        energy = ((data[5] << 16) | (data[6] << 8) | data[7]) / 10000.0 * 1000.0
         voltage = ((data[8] << 8) | data[9]) / 100.0
         current = ((data[10] << 8) | data[11]) / 100.0
         power = ((data[12] << 16) | (data[13] << 8) | data[14]) / 100.0
-        power_factor = data[15]
         self._power_data = GoveePowerData(
             time_on=time_on,
             energy=energy,
             voltage=voltage,
             current=current,
             power=power,
-            power_factor=power_factor,
+            power_factor=None,
         )
         _LOGGER.debug(
-            "H5086 %s power: %.2fV %.2fA %.2fW %.1fWh pf=%d%% on=%ds",
-            self._device.address, voltage, current, power, energy, power_factor, time_on,
+            "H5086 %s power: %.2fV %.2fA %.2fW %.2fWh on=%ds",
+            self._device.address,
+            voltage,
+            current,
+            power,
+            energy,
+            time_on,
         )
 
     def _parse_status_response(self, data: bytearray) -> None:
@@ -918,9 +948,7 @@ class GoveePlugPairer:
     # At least H5080, H5082, and H5086 all have the same pairing procedure
     # as implemented here
 
-    def __init__(
-        self, device: BLEDevice, recv_uuid: str, send_uuid: str, auth_msg: bytes
-    ) -> None:
+    def __init__(self, device: BLEDevice, recv_uuid: str, send_uuid: str, auth_msg: bytes) -> None:
         self._device = device
         self._recv_uuid = recv_uuid
         self._send_uuid = send_uuid
@@ -943,7 +971,7 @@ class GoveePlugPairer:
             _LOGGER.error(
                 "failed to connect for pairing: %s - No available connection slots. "
                 "Please disconnect unused devices or add more BLE proxies.",
-                device_name
+                device_name,
             )
             raise
         except Exception as e:
@@ -997,9 +1025,7 @@ class GoveePlugPairer:
 class NoOpPlugPairer:
     # H6163 doesn't seem to need pairing, just return a dummy token
 
-    def __init__(
-        self, device: BLEDevice, recv_uuid: str, send_uuid: str, auth_msg: bytes
-    ) -> None:
+    def __init__(self, device: BLEDevice, recv_uuid: str, send_uuid: str, auth_msg: bytes) -> None:
         self._device = device
         self._recv_uuid = recv_uuid
         self._send_uuid = send_uuid
