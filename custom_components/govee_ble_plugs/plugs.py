@@ -737,12 +737,18 @@ class GoveePlugH5086(GoveePlugH508x):
     MSG_GET_POWER = _b("aa190000000000000000000000000000000000b3")
 
     SEND_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b11"
+<<<<<<< HEAD
     # The Govee APK (BleComm.java) exposes getServiceUuid()=1910 and
     # getCharacteristicUuid()=2B11 (the write char). The notify characteristic is the
     # sibling 2B10 under the 1910 service (same as H5080/H5082/H5083). 1910 itself is a
     # service UUID and is NOT a valid characteristic — bleak rejects it with
     # BleakCharacteristicNotFoundError at start_notify time.
     RECV_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b10"
+=======
+    # Per the Govee APK (BleComm.java), the device returns notifications via the
+    # 1910 service UUID (the app's getServiceUuid()), not 2b10. The write char is 2b11.
+    RECV_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d1910"
+>>>>>>> 43cb773bcfc6672a394e5d76eb8505521cdf0351
 
     def __init__(self, device: BLEDevice, token: str) -> None:
         super().__init__(
