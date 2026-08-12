@@ -714,9 +714,15 @@ class GoveePlugH5086(GoveePlugH508x):
     MSG_TURN_OFF = _b("3301000000000000000000000000000000000032")
     MSG_QUERY_STATUS = _b("3300000000000000000000000000000000000033")
     # Request power-monitoring data; the device replies with an ee19 frame.
-    MSG_GET_POWER = _b("aa000000000000000000000000000000000000aa")
+    # Per the Govee APK (DeviceElectricController.getCommandType()=25=0x19), the
+    # power query is proType=0xAA, cmdType=0x19 (not 0x00). XOR checksum = aa^19 = b3.
+    MSG_GET_POWER = _b("aa190000000000000000000000000000000000b3")
 
     SEND_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b11"
+    # NOTE: The APK's BleComm reports getServiceUuid()=1910 and getCharacteristicUuid()=2b11.
+    # 1910 is the SERVICE UUID, not a characteristic — subscribing to it raises
+    # BleakCharacteristicNotFoundError. The notify characteristic is 2b10 (sibling
+    # of the write char 2b11, both under the 1910 service), matching the H5080/82/83.
     RECV_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b10"
 
     def __init__(self, device: BLEDevice, token: str) -> None:
@@ -807,34 +813,37 @@ class GoveePlugH5086(GoveePlugH508x):
     def _parse_power_response(self, data: bytearray) -> None:
         """Parse an ee19 power-monitoring frame.
 
-        Layout (big-endian): ee19 [time:3][energy:3][voltage:2][current:2][power:3][factor:1]
-        - time: seconds the outlet has been on
-        - energy: 1/10 Wh
-        - voltage: 1/100 V
-        - current: 1/100 A
-        - power: 1/100 W
-        - power_factor: percent
-        (Protocol from nsheaps@'s H5086 work; unverified here.)
+        Layout (big-endian), per the Govee APK DeviceElectricController.d():
+          ee 19 [runtime:3][energy:3][voltage:2][current:2][power:3] [padding:4]
+        - runtime:    seconds the outlet has been on (raw int, no scaling)
+        - energy:     1/10000 kWh accumulated (APK divisor = 10000.0f)
+        - voltage:    1/100 V
+        - current:    1/100 A
+        - power:      1/100 W
+        - power_factor: removed - APK shows only 13 payload bytes; bytes [15:19]
+          are padding, not a power-factor byte.
+        (Protocol offsets confirmed against DeviceElectricController.d()/e() in the APK
+        decompilation.)
         """
-        if len(data) < 16 or data[0] != 0xEE or data[1] != 0x19:
+        if len(data) < 15 or data[0] != 0xEE or data[1] != 0x19:
             return
         time_on = (data[2] << 16) | (data[3] << 8) | data[4]
-        energy = ((data[5] << 16) | (data[6] << 8) | data[7]) / 10.0
+        # APK divisor is /10000.0f for kWh; convert to Wh for the WATT_HOUR sensor unit.
+        energy = ((data[5] << 16) | (data[6] << 8) | data[7]) / 10000.0 * 1000.0
         voltage = ((data[8] << 8) | data[9]) / 100.0
         current = ((data[10] << 8) | data[11]) / 100.0
         power = ((data[12] << 16) | (data[13] << 8) | data[14]) / 100.0
-        power_factor = data[15]
         self._power_data = GoveePowerData(
             time_on=time_on,
             energy=energy,
             voltage=voltage,
             current=current,
             power=power,
-            power_factor=power_factor,
+            power_factor=None,
         )
         _LOGGER.debug(
-            "H5086 %s power: %.2fV %.2fA %.2fW %.1fWh pf=%d%% on=%ds",
-            self._device.address, voltage, current, power, energy, power_factor, time_on,
+            "H5086 %s power: %.2fV %.2fA %.2fW %.2fWh on=%ds",
+            self._device.address, voltage, current, power, energy, time_on,
         )
 
     def _parse_status_response(self, data: bytearray) -> None:
