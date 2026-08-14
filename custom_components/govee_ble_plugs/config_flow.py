@@ -14,7 +14,14 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFl
 from homeassistant.const import CONF_ACCESS_TOKEN, CONF_ADDRESS, CONF_MODEL
 from homeassistant.core import callback
 
-from .const import DOMAIN, CONF_ENABLE_POLLING, CONF_GENERIC_DRIVER, DEFAULT_GENERIC_DRIVER
+from .const import (
+    DOMAIN,
+    CONF_ENABLE_POLLING,
+    CONF_GENERIC_DRIVER,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
+    DEFAULT_GENERIC_DRIVER,
+)
 from .plugs import (
     GoveeAdvertisementData,
     GoveePairApi,
@@ -30,7 +37,8 @@ _LOGGER: logging.Logger = logging.getLogger(__package__)
 
 
 class GoveeBlePlugsConfigFlow(ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
+    MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
 
     def __init__(self) -> None:
         """Initialize."""

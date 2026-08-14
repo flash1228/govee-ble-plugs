@@ -94,3 +94,68 @@ def test_h5082_both_on():
 
 def test_h5082_both_off():
     assert _parse_h5082(0x00) == [False, False]
+
+
+# ---- H5086 power frame parsing ----
+# Layout: <aa|ee> 19 [time:3][energy:3][voltage:2][current:2][power:3][factor:1]
+# Both vectors below are real 20-byte captures with valid XOR checksums, one under
+# each header: `ee 19` is the device's unsolicited push, `aa 19` the reply to a read.
+
+# reydanro@, egold555/Govee-Reverse-Engineering Products/H5086.md
+_POWER_FRAME_EE = "ee1900198b0000262f3d00910044656400000085"
+# flash1228@, PR #1 (docs/h5086-protocol.md worked example)
+_POWER_FRAME_AA = "aa1900338a0003c027d9001b000a426100000005"
+
+
+class _FakeDevice:
+    address = "00:00:00:00:00:00"
+
+
+def _parse_h5086_power(frame_hex: str, seed=None):
+    api = plugs.GoveePlugH5086.__new__(plugs.GoveePlugH5086)  # skip __init__
+    api._power_data = seed if seed is not None else plugs.GoveePowerData()
+    api._device = _FakeDevice()
+    api._parse_power_response(bytearray(bytes.fromhex(frame_hex)))
+    return api._power_data
+
+
+def test_h5086_power_parse_ee_header():
+    """The device's unsolicited `ee 19` push must still parse."""
+    pd = _parse_h5086_power(_POWER_FRAME_EE)
+    assert pd.time_on == 6539
+    assert pd.voltage == 120.93
+    assert pd.current == 1.45
+    assert pd.power == 175.09
+    assert pd.energy == 3.8
+    assert pd.power_factor == 100
+
+
+def test_h5086_power_parse_aa_header():
+    """The `aa 19` reply to our own read carries the identical payload."""
+    pd = _parse_h5086_power(_POWER_FRAME_AA)
+    assert pd.time_on == 13194
+    assert pd.voltage == 102.01
+    assert pd.current == 0.27
+    assert pd.power == 26.26
+    assert pd.energy == 96.0
+    assert pd.power_factor == 97
+
+
+def test_h5086_power_factor_matches_computed():
+    """byte[15] is power factor, not padding: on both captures it agrees with the
+    PF computed from that same frame's V/A/W, within current quantisation (0.01 A)."""
+    for frame in (_POWER_FRAME_EE, _POWER_FRAME_AA):
+        pd = _parse_h5086_power(frame)
+        computed = pd.power / (pd.voltage * pd.current) * 100
+        assert abs(computed - pd.power_factor) < 2.5
+
+
+def test_h5086_power_parse_short_frame_ignored():
+    seed = plugs.GoveePowerData(time_on=999)
+    assert _parse_h5086_power("aa190102", seed=seed).time_on == 999
+
+
+def test_h5086_power_parse_wrong_header_ignored():
+    seed = plugs.GoveePowerData(time_on=999)
+    bad = "33" + _POWER_FRAME_AA[2:]
+    assert _parse_h5086_power(bad, seed=seed).time_on == 999

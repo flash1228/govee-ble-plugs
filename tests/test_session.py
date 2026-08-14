@@ -49,7 +49,9 @@ class FakeGoveeDevice:
                 return [self._reply(bytes([0xAA, 0xB1, 0x01]) + self.token[:8])]
             return [self._reply(bytes([0xAA, 0xB1, 0x00]) + b"\xde\xad\xbe\xef\xca\xfe\x00\x01")]
         if c == 0x33 and s == 0xB2:
-            ok = f[2:9] == self.token[:7]
+            # The firmware's 33 b2 handler compares exactly 8 bytes (request[2..9])
+            # against its stored token, then stops.
+            ok = f[2:10] == self.token[:8]
             self.authed = self.authed or ok
             return [self._reply(bytes([0x33, 0xB2, 0x00 if ok else 0x01]))]
         if c == 0x33 and s == 0x01:
@@ -100,6 +102,10 @@ def test_fetch_token_after_button():
         await sess.open_session()
         t = await sess.fetch_token(retries=10, delay=0)
         assert t is not None and t[:8] == token[:8]
+        # The token is exactly 8 bytes (resp[3:11]). Without this the old 16-byte
+        # read passes too: the extra bytes are the frame's zero padding, so the
+        # wire frames are identical and every other assertion here still holds.
+        assert len(t) == 8
     asyncio.run(go())
 
 

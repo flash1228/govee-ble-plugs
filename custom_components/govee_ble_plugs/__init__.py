@@ -6,6 +6,7 @@ from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
 from homeassistant.const import CONF_ACCESS_TOKEN, CONF_ADDRESS, CONF_MODEL, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +55,47 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
                     },
                 )
             )
+
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate an existing config entry to the current schema version.
+
+    **minor 1 -> 2** — the H5086 power-factor sensor became a diagnostic entity that is
+    disabled by default. ``entity_registry_enabled_default`` is only consulted the first
+    time an entity registers, so entries created before that change keep an enabled
+    power-factor entity forever; this disables it for them too.
+
+    Note that the registry cannot distinguish "enabled because it used to default to
+    enabled" from "the user deliberately turned it on" — both are ``disabled_by = None``.
+    The minor-version bump is what makes this safe: the sweep runs exactly once per entry,
+    so anyone who re-enables the sensor afterwards keeps it. Already-disabled entities are
+    left alone so a user's explicit choice is never overwritten with a different reason.
+    """
+    if entry.version > 1:
+        # Entry written by a newer version of this integration — don't touch it.
+        return False
+
+    if entry.minor_version < 2:
+        registry = er.async_get(hass)
+        for reg_entry in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if (
+                reg_entry.unique_id
+                and reg_entry.unique_id.endswith("-power_factor")
+                and reg_entry.disabled_by is None
+            ):
+                _LOGGER.info(
+                    "Disabling %s: power factor is now a diagnostic entity, off by "
+                    "default (it is derivable from the voltage/current/power sensors). "
+                    "Re-enable it in the entity settings if you want it back.",
+                    reg_entry.entity_id,
+                )
+                registry.async_update_entity(
+                    reg_entry.entity_id,
+                    disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+                )
+        hass.config_entries.async_update_entry(entry, minor_version=2)
 
     return True
 
