@@ -61,6 +61,7 @@ class GoveePlugDataUpdateCoordinator(PassiveBluetoothDataUpdateCoordinator):
         self._current_backoff = POLLING_INTERVAL
         self._status_query_supported = True  # Assume supported until proven otherwise
         self._status_query_failures = 0
+        self._status_query_skip_count = 0  # For periodic retries after disabled state
 
         # Store parameters for deferred API creation
         self._address = address or (ble_device.address if ble_device else None)
@@ -191,16 +192,31 @@ class GoveePlugDataUpdateCoordinator(PassiveBluetoothDataUpdateCoordinator):
                     )
                     continue
 
-                # Skip status query if we know the device doesn't support it
+                # Skip status query if we know the device doesn't support it,
+                # but periodically retry in case the failure was transient
+                # (e.g. Bluetooth adapter was unavailable, or a protocol bug was fixed).
                 if not self._status_query_supported:
-                    _LOGGER.debug(
-                        "Skipping status query for %s (not supported), relying on advertisements",
-                        self._address
-                    )
-                    # Reset backoff since we're intentionally skipping
-                    self._consecutive_failures = 0
-                    self._current_backoff = POLLING_INTERVAL
-                    continue
+                    self._status_query_skip_count = getattr(
+                        self, "_status_query_skip_count", 0
+                    ) + 1
+                    if self._status_query_skip_count >= 10:
+                        # Periodically retry status queries even after they were disabled
+                        self._status_query_skip_count = 0
+                        self._status_query_supported = True
+                        self._status_query_failures = 0
+                        _LOGGER.debug(
+                            "Periodically retrying status query for %s after disabled state",
+                            self._address,
+                        )
+                    else:
+                        _LOGGER.debug(
+                            "Skipping status query for %s (not supported), relying on advertisements",
+                            self._address
+                        )
+                        # Reset backoff since we're intentionally skipping
+                        self._consecutive_failures = 0
+                        self._current_backoff = POLLING_INTERVAL
+                        continue
 
                 _LOGGER.debug("Polling status for %s", self._address)
                 try:
@@ -215,6 +231,7 @@ class GoveePlugDataUpdateCoordinator(PassiveBluetoothDataUpdateCoordinator):
                     self._consecutive_failures = 0
                     self._current_backoff = POLLING_INTERVAL
                     self._status_query_failures = 0
+                    self._status_query_skip_count = 0
 
                     # Notify listeners that data has been updated
                     self.async_update_listeners()

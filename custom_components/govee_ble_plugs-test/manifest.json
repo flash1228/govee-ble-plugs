@@ -1,6 +1,6 @@
 {
-    "domain": "govee_ble_plugs",
-    "name": "Govee BLE",
+    "domain": "govee_ble_plugs_test",
+    "name": "Govee BLE Test",
     "bluetooth": [
         {
             "local_name": "GVH*",
