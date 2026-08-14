@@ -268,11 +268,11 @@ class GoveePlugH508x:
                 except Exception as e:
                     _LOGGER.debug("Error disconnecting %s: %s", device_name, e)
 
-    async def _query_status_internal(self, query_msg: bytes, expect_power: bool = False) -> bool:
-        """Connect, authenticate, send a query, and parse the response.
+    async def _query_status_internal(self, query_msg: bytes) -> bool:
+        """Connect, authenticate, send a query, and parse whatever frames come back.
 
-        When expect_power is True the call waits for an ee19 power frame
-        (H5086) instead of the usual 0x3301 status frame.
+        One query can yield several frames, so both a 0x3301 status frame and an
+        H5086 power frame are collected and handed to their parsers if present.
         """
         client = None
         device_name = f"{self._device.name} ({self._device.address})"
@@ -310,7 +310,11 @@ class GoveePlugH508x:
             for frame in await session.query(query_msg, timeout=3.0):
                 if len(frame) >= 3 and frame[0] == 0x33 and frame[1] == 0x01:
                     status_data[0] = frame
-                elif len(frame) >= 2 and frame[0] == 0xAA and frame[1] == 0x19:
+                # Power frames arrive under TWO headers: 0xAA 0x19 is the synchronous
+                # reply to our `aa 19` read, 0xEE 0x19 is the device's unsolicited push.
+                # The Govee app handles both and parses them identically — see
+                # _parse_power_response.
+                elif len(frame) >= 2 and frame[0] in (0xAA, 0xEE) and frame[1] == 0x19:
                     power_data[0] = frame
 
             # Parse whichever responses arrived
@@ -713,16 +717,13 @@ class GoveePlugH5086(GoveePlugH508x):
     MSG_TURN_ON = _b("3301010000000000000000000000000000000033")
     MSG_TURN_OFF = _b("3301000000000000000000000000000000000032")
     MSG_QUERY_STATUS = _b("3300000000000000000000000000000000000033")
-    # Request power-monitoring data; the device replies with an ee19 frame.
-    # Per the Govee APK (DeviceElectricController.getCommandType()=25=0x19), the
-    # power query is proType=0xAA, cmdType=0x19 (not 0x00). XOR checksum = aa^19 = b3.
+    # Request power-monitoring data. proType 0xAA (read) + cmdType 0x19, per the Govee
+    # APK (`DeviceElectricController.getCommandType()` returns 25 = 0x19). XOR checksum
+    # aa ^ 19 = b3. The older `aa 00` query came from reydanro@'s capture; the device
+    # answers 0x19 either way, but 0x19 is what the app itself sends.
     MSG_GET_POWER = _b("aa190000000000000000000000000000000000b3")
 
     SEND_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b11"
-    # NOTE: The APK's BleComm reports getServiceUuid()=1910 and getCharacteristicUuid()=2b11.
-    # 1910 is the SERVICE UUID, not a characteristic — subscribing to it raises
-    # BleakCharacteristicNotFoundError. The notify characteristic is 2b10 (sibling
-    # of the write char 2b11, both under the 1910 service), matching the H5080/82/83.
     RECV_CHARACTERISTIC_UUID = "00010203-0405-0607-0809-0a0b0c0d2b10"
 
     def __init__(self, device: BLEDevice, token: str) -> None:
@@ -808,43 +809,52 @@ class GoveePlugH5086(GoveePlugH508x):
 
     async def async_query_status(self) -> bool:
         """Actively poll power data; on/off state comes from advertisements."""
-        return await self._query_status_internal(self.MSG_GET_POWER, expect_power=True)
+        return await self._query_status_internal(self.MSG_GET_POWER)
 
     def _parse_power_response(self, data: bytearray) -> None:
-        """Parse an aa19 power-monitoring response.
+        """Parse a power-monitoring frame.
 
-        Layout (big-endian), per the Govee APK DeviceElectricController.d()/e():
-          aa 19 [runtime:3][energy:3][voltage:2][current:2][power:3] [padding:4]
-        The device echoes the request's proType+cmdType header (aa 19), not 0xEE,
-        matching the base2light AbsControllerNoEvent4Single.isSameController contract
-        (getProType()==bytes[0] && getCommandType()==bytes[1]).
-        - runtime:    seconds the outlet has been on (raw int, no scaling)
-        - energy:     1/10000 kWh accumulated (APK divisor = 10000.0f); converted to Wh
-        - voltage:    1/100 V
-        - current:    1/100 A
-        - power:      1/100 W
-        - power_factor: removed - APK shows only 13 payload bytes; bytes [15:19]
-          are padding, not a power-factor byte.
+        Layout (big-endian, 13-byte payload):
+          <aa|ee> 19 [time:3][energy:3][voltage:2][current:2][power:3][factor:1]
+
+        Two headers carry this payload and the app parses both identically:
+        ``aa 19`` is the synchronous reply to our read (matched by the app's
+        ``isSameController``: proType 0xAA for a read + cmdType 0x19), and ``ee 19``
+        is the device's unsolicited push (the app's ``AbsNotify.parse`` gates on a
+        leading 0xEE, strips it, then dispatches on cmdType 0x19 to the *same*
+        ``DeviceElectricController`` parser). Accept either.
+
+        - time: seconds the outlet has been on (the app divides by 60 to show minutes)
+        - energy: 1/10 Wh (the app reads it as 1/10000 kWh, which is the same scale)
+        - voltage: 1/100 V
+        - current: 1/100 A
+        - power: 1/100 W
+        - power_factor: percent. The app does *not* read this byte — it parses only
+          13 payload bytes and has no power-factor field anywhere. But the device
+          clearly emits it: two independent captures agree with the power factor
+          computed from their own V/A/W to within rounding (reydanro@: 120.93V ×
+          1.45A vs 175.09W -> 99.9%, byte = 0x64 = 100; flash1228@: 102.01V × 0.27A
+          vs 26.26W -> 95.3%, byte = 0x61 = 97). Keep parsing it.
         """
-        if len(data) < 15 or data[0] != 0xAA or data[1] != 0x19:
+        if len(data) < 16 or data[0] not in (0xAA, 0xEE) or data[1] != 0x19:
             return
         time_on = (data[2] << 16) | (data[3] << 8) | data[4]
-        # APK divisor is /10000.0f for kWh; convert to Wh for the WATT_HOUR sensor unit.
-        energy = ((data[5] << 16) | (data[6] << 8) | data[7]) / 10000.0 * 1000.0
+        energy = ((data[5] << 16) | (data[6] << 8) | data[7]) / 10.0
         voltage = ((data[8] << 8) | data[9]) / 100.0
         current = ((data[10] << 8) | data[11]) / 100.0
         power = ((data[12] << 16) | (data[13] << 8) | data[14]) / 100.0
+        power_factor = data[15]
         self._power_data = GoveePowerData(
             time_on=time_on,
             energy=energy,
             voltage=voltage,
             current=current,
             power=power,
-            power_factor=None,
+            power_factor=power_factor,
         )
         _LOGGER.debug(
-            "H5086 %s power: %.2fV %.2fA %.2fW %.2fWh on=%ds",
-            self._device.address, voltage, current, power, energy, time_on,
+            "H5086 %s power: %.2fV %.2fA %.2fW %.1fWh pf=%d%% on=%ds",
+            self._device.address, voltage, current, power, energy, power_factor, time_on,
         )
 
     def _parse_status_response(self, data: bytearray) -> None:

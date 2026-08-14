@@ -10,7 +10,6 @@ Wraps a connected bleak client and layers on the recovered protocol:
 The cipher itself lives in ``crypto.py``. This module is BLE-aware but kept free of Home
 Assistant imports so it can be exercised against a fake client in tests.
 """
-
 from __future__ import annotations
 
 import asyncio
@@ -98,7 +97,7 @@ class GoveeBleSession:
     async def query(self, data: bytes, timeout: float = 3.0, idle: float = 0.4):
         """Send a query and collect all decrypted reply frames until a quiet gap (``idle``)
         or ``timeout`` elapses. Useful when one query yields several frames (e.g. the H5086
-        returns both a 33 01 status and an ee 19 power frame)."""
+        returns both a 33 01 status and an aa 19 / ee 19 power frame)."""
         self._drain()
         await self.write(data)
         frames = []
@@ -129,16 +128,20 @@ class GoveeBleSession:
 
     async def fetch_token(self, retries: int = 45, delay: float = 0.4, timeout: float = 1.0):
         """Poll ``aa b1`` until the device reports the token ready (resp[2]==1). The caller must
-        get the user to SHORT-press the plug button to open the ~5s window.
+        get the user to SHORT-press the plug button to open the ~5s window. Returns the 8-byte
+        token (resp[3:11]) or None.
 
-        Per the Govee APK (SecretController.c) the token is 8 bytes at resp[3:11]
-        (after the proType/cmdType/status header), not 16. Returns the 8-byte token or None.
+        The token is 8 bytes, confirmed three ways: the H5080 firmware's ``aa b1`` handler
+        loads 8 bytes and copies them into resp[3..10]; the Govee APK's ``SecretController``
+        does ``arraycopy(payload, 1, new byte[8], 0, 8)``; and reydanro@'s capture shows
+        8 significant bytes followed by zeros. This used to read resp[3:19], which pulled in
+        8 bytes of that zero padding — harmless on the wire (the firmware's ``33 b2`` handler
+        compares only request bytes[2..9]) but wrong, and it made the stored token 16 bytes.
+        Tokens already stored at 16 bytes keep authenticating for exactly that reason.
         """
         for _ in range(retries):
             r = await self.exchange(
-                bytes([CMD_GET_AUTH_KEY, SUB_GET_AUTH_KEY]),
-                CMD_GET_AUTH_KEY,
-                SUB_GET_AUTH_KEY,
+                bytes([CMD_GET_AUTH_KEY, SUB_GET_AUTH_KEY]), CMD_GET_AUTH_KEY, SUB_GET_AUTH_KEY,
                 timeout=timeout,
             )
             if r and len(r) >= 11 and r[2] == 1:

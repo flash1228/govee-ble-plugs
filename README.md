@@ -22,7 +22,7 @@ The integration is **data-driven**: a declarative device registry maps every cat
 | **H5080** | Smart plug (single outlet) | on/off |
 | **H5082** | Dual smart plug | on/off per outlet (2) |
 | **H5083** | Smart plug (single outlet) | on/off — *community-contributed* |
-| **H5086** | Smart plug w/ energy monitoring | on/off, plus voltage / current / power / energy sensors |
+| **H5086** | Smart plug w/ energy monitoring | on/off, plus voltage / current / power / energy sensors (and power factor, disabled by default) |
 | **H6163** | RGBIC LED light (15 segments) | on/off, brightness, RGB color, color temperature, scene & music effects, per-segment color (`govee_ble_plugs.set_segment_color`) |
 
 ### Protocol-derived (experimental)
@@ -42,7 +42,7 @@ Discovery matches any Govee BLE advertisement name (`GVH*`, `ihoment_*`, `Govee_
 - **Switch entities** for plugs (incl. per-outlet control for the dual H5082) and for appliances (on/off).
 - **Light entities** — brightness, RGB, color temperature, and built-in effects; **RGBIC** strips expose per-segment color via two services: `govee_ble_plugs.set_segment_color` (`{segments: [0,1,2], rgb_color: [255,0,0]}`) for one color, and `govee_ble_plugs.set_segment_colors` (`{groups: [{rgb_color, segments}, …]}`) to paint several colors at once.
 - **Sensor entities** — temperature / humidity / battery for thermo-hygrometers.
-- **Energy monitoring** for the H5086: voltage, current, power, and accumulated energy sensors, polled over BLE. (The Govee app's power-factor field is not exposed — the `ee 19` response payload is only 13 bytes, and the byte the app reads as power-factor is padding.)
+- **Energy monitoring** for the H5086: voltage, current, power, and accumulated energy, polled over BLE. Power factor is also reported, as a diagnostic entity disabled by default — it's redundant with `W / (V × A)` for most people, but more accurate than deriving it at low loads. The protocol is documented in [docs/h5086-protocol.md](docs/h5086-protocol.md).
 - **State tracking** from passive BLE advertisements, plus active status polling with exponential backoff.
 - **Optimistic updates with a command cooldown**, so a stale advertisement can't briefly revert a command you just issued.
 - **Resilient connection handling** — per-device connection serialization, connection timeouts, and capped retries to coexist with the limited connection slots on BLE proxies.
@@ -100,7 +100,8 @@ This project builds on the work of others:
 - **Original integration:** [virtuald/govee-ble-plugs](https://github.com/virtuald/govee-ble-plugs) — the base this project forked from.
 - **H5083 support:** adapted from [zaza7/govee-ble-plugs](https://github.com/zaza7/govee-ble-plugs).
 - **H5086 advertisement state-byte fix & command cooldown:** adapted from [cmorgannorris/govee-ble-plugs](https://github.com/cmorgannorris/govee-ble-plugs).
-- **H5086 power/energy monitoring:** ported from [nsheaps/govee-ble-plugs](https://github.com/nsheaps/govee-ble-plugs); protocol details (8-byte token, `aa 19` power query, energy divisor, payload layout) corrected against the decompiled Govee Android APK (`com.govee.home` → `com.govee.h5086`).
+- **H5086 power/energy monitoring:** ported from [nsheaps/govee-ble-plugs](https://github.com/nsheaps/govee-ble-plugs), which built on reydanro@'s packet captures in [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering/blob/master/Products/H5086.md).
+- **H5086 protocol corrections** (8-byte auth token, `aa 19` power query, `aa 19`/`ee 19` response headers): [@flash1228](https://github.com/flash1228), from their own decompilation of the Govee Android app.
 - **H6163 color-temperature protocol:** referenced from [wez/govee-py](https://github.com/wez/govee-py) and [chvolkmann/govee_btled](https://github.com/chvolkmann/govee_btled).
 - **Protocol reverse-engineering:** [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering) — a great starting point for adding new devices.
 - **Inspiration & structure:** [Beshelmek/govee_ble_lights](https://github.com/Beshelmek/govee_ble_lights) and Home Assistant's [keymitt_ble integration](https://github.com/home-assistant/core/tree/dev/homeassistant/components/keymitt_ble).

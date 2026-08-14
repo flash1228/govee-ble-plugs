@@ -8,6 +8,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
+    EntityCategory,
     UnitOfElectricCurrent,
     UnitOfElectricPotential,
     UnitOfEnergy,
@@ -45,10 +46,7 @@ async def async_setup_entry(
             GoveePlugCurrentSensor(coordinator, entry),
             GoveePlugPowerSensor(coordinator, entry),
             GoveePlugEnergySensor(coordinator, entry),
-            # Power-factor sensor omitted: the Govee APK shows the ee19 payload is
-            # only 13 bytes (runtime:3 + energy:3 + V:2 + A:2 + W:3); bytes [15:19]
-            # are padding, not a power-factor byte. See plugs.py:_parse_power_response.
-            # GoveePlugPowerFactorSensor(coordinator, entry),
+            GoveePlugPowerFactorSensor(coordinator, entry),
         ]
 
     # Broadcast metric sensors (thermo-hygrometers): temperature/humidity/battery.
@@ -196,11 +194,25 @@ class GoveePlugEnergySensor(GoveePlugSensorBase):
 
 
 class GoveePlugPowerFactorSensor(GoveePlugSensorBase):
+    """Diagnostic, disabled by default.
+
+    Power factor is definitionally derivable from the other three sensors
+    (``PF = W / (V * A)``), so for most users it is a redundant near-constant that
+    would write a recorder row on every poll. It is not free of information — the
+    plug reports current in 0.01 A steps but computes PF from its unrounded
+    internals, so at the sub-amp loads a plug actually sees the device's own byte
+    beats a derived one (see docs/h5086-protocol.md) — and it is a useful load
+    fingerprint (~1.0 resistive, 0.5-0.7 switching supply) and a slow-drift signal
+    for motor loads. Enable it if you want that; nobody else pays for it.
+    """
+
     _sensor_type = "power_factor"
     _attr_name = "Power Factor"
     _attr_device_class = SensorDeviceClass.POWER_FACTOR
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
     @property
     def native_value(self) -> int | None:
